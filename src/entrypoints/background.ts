@@ -1,10 +1,11 @@
-// Note: StorageUtils import removed as background script should use chrome.storage directly
+import { browser } from '../utils/browser-api';
 
 interface TabState {
   tabId: number;
   isTrackedSite: boolean;
   isActive: boolean;
   url: string;
+  hasActiveLesson: boolean;
 }
 
 interface ActiveTimer {
@@ -41,12 +42,14 @@ export default defineBackground(() => {
 
   async function updateTabState(tabId: number, url: string, isActive: boolean = false) {
     const isTracked = shouldTrackUrl(url);
+    const existingTab = activeTabs.get(tabId);
     
     activeTabs.set(tabId, {
       tabId,
       isTrackedSite: isTracked,
       isActive,
-      url
+      url,
+      hasActiveLesson: existingTab?.hasActiveLesson || false
     });
     
     // Manage timer based on active tracked tabs
@@ -55,7 +58,7 @@ export default defineBackground(() => {
 
   async function manageTimer() {
     const activeTrackedTab = Array.from(activeTabs.values())
-      .find(tab => tab.isActive && tab.isTrackedSite);
+      .find(tab => tab.isActive && tab.isTrackedSite && !tab.hasActiveLesson);
     
     if (activeTrackedTab && !activeTimer) {
       // Start timer for this tab
@@ -66,7 +69,7 @@ export default defineBackground(() => {
       
       // Send start message to content script
       try {
-        await chrome.tabs.sendMessage(activeTrackedTab.tabId, {
+        await browser.tabs.sendMessage(activeTrackedTab.tabId, {
           type: 'START_TIMER',
           startTime: activeTimer.startTime
         });
@@ -77,7 +80,7 @@ export default defineBackground(() => {
     } else if (!activeTrackedTab && activeTimer) {
       // Stop current timer
       try {
-        await chrome.tabs.sendMessage(activeTimer.tabId, {
+        await browser.tabs.sendMessage(activeTimer.tabId, {
           type: 'STOP_TIMER',
           elapsedTime: Date.now() - activeTimer.startTime
         });
@@ -109,7 +112,7 @@ export default defineBackground(() => {
       };
       
       try {
-        await chrome.tabs.sendMessage(activeTrackedTab.tabId, {
+        await browser.tabs.sendMessage(activeTrackedTab.tabId, {
           type: 'START_TIMER',
           startTime: activeTimer.startTime
         });
@@ -120,26 +123,26 @@ export default defineBackground(() => {
   }
 
   // Tab event listeners
-  chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     if (changeInfo.url && tab.url) {
       await updateTabState(tabId, tab.url, tab.active);
     }
   });
 
-  chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  browser.tabs.onActivated.addListener(async (activeInfo) => {
     // Mark all tabs as inactive
     activeTabs.forEach(tabState => {
       tabState.isActive = false;
     });
     
     // Mark the active tab
-    const tab = await chrome.tabs.get(activeInfo.tabId);
+    const tab = await browser.tabs.get(activeInfo.tabId);
     if (tab.url) {
       await updateTabState(activeInfo.tabId, tab.url, true);
     }
   });
 
-  chrome.tabs.onRemoved.addListener(async (tabId) => {
+  browser.tabs.onRemoved.addListener(async (tabId) => {
     // Clean up removed tab
     if (activeTimer && activeTimer.tabId === tabId) {
       activeTimer = null;
@@ -149,12 +152,12 @@ export default defineBackground(() => {
   });
 
   // Window focus events
-  chrome.windows.onFocusChanged.addListener(async (windowId) => {
-    if (windowId === chrome.windows.WINDOW_ID_NONE) {
+  browser.windows.onFocusChanged.addListener(async (windowId) => {
+    if (windowId === browser.windows.WINDOW_ID_NONE) {
       // All windows lost focus - stop timer
       if (activeTimer) {
         try {
-          await chrome.tabs.sendMessage(activeTimer.tabId, {
+          await browser.tabs.sendMessage(activeTimer.tabId, {
             type: 'PAUSE_TIMER'
           });
         } catch (error) {
@@ -163,7 +166,7 @@ export default defineBackground(() => {
       }
     } else {
       // Window gained focus - resume timer if needed
-      const tabs = await chrome.tabs.query({ active: true, windowId });
+      const tabs = await browser.tabs.query({ active: true, windowId });
       if (tabs.length > 0 && tabs[0].url) {
         await updateTabState(tabs[0].id!, tabs[0].url, true);
       }
@@ -171,7 +174,7 @@ export default defineBackground(() => {
   });
 
   // Handle messages from content scripts
-  chrome.runtime.onMessage.addListener(async (message, sender) => {
+  browser.runtime.onMessage.addListener(async (message, sender) => {
     if (message.type === 'SCROLL_DETECTED' && sender.tab?.id) {
       // Content script detected a scroll - this is handled in content script
       // Background script just needs to be aware
@@ -183,7 +186,7 @@ export default defineBackground(() => {
       const isActive = activeTimer?.tabId === sender.tab.id;
       
       try {
-        await chrome.tabs.sendMessage(sender.tab.id, {
+        await browser.tabs.sendMessage(sender.tab.id, {
           type: 'TIMER_STATE_RESPONSE',
           isActive,
           startTime: isActive ? activeTimer?.startTime : null
@@ -192,10 +195,42 @@ export default defineBackground(() => {
         console.log('Could not send timer state response:', error);
       }
     }
+
+    if (message.type === 'LESSON_STARTED' && sender.tab?.id) {
+      // Mark tab as having active lesson
+      const tabState = activeTabs.get(sender.tab.id);
+      if (tabState) {
+        tabState.hasActiveLesson = true;
+        console.log('Lesson started in tab:', sender.tab.id);
+        
+        // If this tab has the active timer, pause it
+        if (activeTimer && activeTimer.tabId === sender.tab.id) {
+          try {
+            await browser.tabs.sendMessage(sender.tab.id, {
+              type: 'PAUSE_TIMER'
+            });
+          } catch (error) {
+            console.log('Could not send pause message during lesson:', error);
+          }
+        }
+      }
+    }
+
+    if (message.type === 'LESSON_ENDED' && sender.tab?.id) {
+      // Mark tab as no longer having active lesson
+      const tabState = activeTabs.get(sender.tab.id);
+      if (tabState) {
+        tabState.hasActiveLesson = false;
+        console.log('Lesson ended in tab:', sender.tab.id);
+        
+        // Resume timer management
+        await manageTimer();
+      }
+    }
   });
 
   // Initialize with current active tab
-  chrome.tabs.query({ active: true, currentWindow: true }).then(async (tabs) => {
+  browser.tabs.query({ active: true, currentWindow: true }).then(async (tabs) => {
     if (tabs.length > 0 && tabs[0].url && tabs[0].id) {
       await updateTabState(tabs[0].id, tabs[0].url, true);
     }

@@ -19,6 +19,8 @@ export interface StorageData {
     lessonFrequency: number;
     frequencyMode: 'scrolls' | 'time';
   };
+  nextLessonAt: number;
+  lessonActive: boolean;
 }
 
 export type TimePeriod = 'morning' | 'afternoon' | 'night';

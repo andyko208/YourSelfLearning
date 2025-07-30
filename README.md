@@ -1,4 +1,4 @@
-# XScroll Browser Extension - Phase 1: Scroll Detection & Time Tracking
+# XScroll - Phase 1: Scroll Detection & Time Tracking
 
 ## Overview
 
@@ -43,14 +43,15 @@ XScroll is an educational intervention browser extension that transforms social 
 src/
 ├── entrypoints/
 │   ├── background.ts              # Service worker for tab coordination
+│   ├── content.ts                 # Core script for user interaction tracking
 │   ├── content/
-│   │   ├── content.ts             # Main content script (MOVED from root)
 │   │   └── storage-utils.ts       # Storage management utilities
 │   └── popup/                     # Extension popup (existing)
 ├── types/
 │   └── storage.ts                 # TypeScript interfaces
-└── utils/
-    └── time-periods.ts            # Time period calculation utilities
+├── utils/
+│   └── time-periods.ts            # Time period calculation utilities
+└── wxt.config.ts                  # Configuration for storage and activeTab
 ```
 
 ### 📊 Data Structure
@@ -60,9 +61,9 @@ The extension stores data in browser local storage with the following structure:
 ```typescript
 {
   today: {
-    morning: { scrollCount: number, timeWasted: number, lessonCount: number },
-    afternoon: { scrollCount: number, timeWasted: number, lessonCount: number },
-    night: { scrollCount: number, timeWasted: number, lessonCount: number },
+    morning: { scrollCount: number, timeWasted: number },
+    afternoon: { scrollCount: number, timeWasted: number },
+    night: { scrollCount: number, timeWasted: number },
     date: string
   },
   yesterday: { /* same structure */ },
@@ -74,23 +75,7 @@ The extension stores data in browser local storage with the following structure:
 }
 ```
 
-## 🧪 Manual Testing Instructions
-
-### Prerequisites
-
-1. **Build the Extension**
-   ```bash
-   npm install
-   npm run build
-   ```
-
-2. **Load in Chrome**
-   - Open Chrome and go to `chrome://extensions/`
-   - Enable "Developer mode" (top right toggle)
-   - Click "Load unpacked"
-   - Select the `.output/chrome-mv3` folder
-
-### Test Cases
+## Test Cases
 
 #### 1. **Basic Scroll Detection Test**
 1. Open TikTok, Instagram, or YouTube Shorts
@@ -100,12 +85,7 @@ The extension stores data in browser local storage with the following structure:
 5. Try rapid scrolling within 2 seconds
 6. **Expected**: Only first scroll is counted due to cooldown
 
-#### 2. **Time Period Calculation Test**
-1. Open browser console on any tracked site
-2. Copy and paste the test script from `test-phase1.js`
-3. **Expected**: Correct time period displayed based on current hour
-
-#### 3. **Tab Coordination Test**
+#### 2. **Tab Coordination Test**
 1. Open a tracked site (TikTok/Instagram/YouTube Shorts)
 2. Open browser console and look for "Timer started" message
 3. Open new tab to non-tracked site (e.g., google.com)
@@ -113,36 +93,24 @@ The extension stores data in browser local storage with the following structure:
 5. Switch back to tracked site
 6. **Expected**: Console shows "Timer started" message
 
-#### 4. **Multi-Tab Race Condition Test**
+#### 3. **Multi-Tab Race Condition Test**
 1. Open multiple tabs to the same tracked platform
 2. Scroll in different tabs rapidly
 3. **Expected**: No duplicate counting, data remains consistent
 
-#### 5. **Data Persistence Test**
+#### 4. **Data Persistence Test**
 1. Scroll several times on a tracked site
 2. Check data: `browser.storage.local.get('xscroll-data')`
 3. Reload the page
 4. Check data again
 5. **Expected**: Scroll counts and time data persist after reload
 
-#### 6. **Window Focus Test**
+#### 5. **Window Focus Test**
 1. Open tracked site and ensure timer is running
 2. Switch to another application (minimize browser)
 3. **Expected**: Timer pauses
 4. Switch back to browser
 5. **Expected**: Timer resumes
-
-### 🛠️ Testing Utilities
-
-Load the automated test script by copying `test-phase1.js` content into browser console:
-
-```javascript
-// Available test functions:
-XScrollTest.viewData()        // View current stored data
-XScrollTest.clearData()       // Clear all stored data  
-XScrollTest.simulateScroll()  // Simulate scroll event
-XScrollTest.simulateKeyDown() // Simulate down arrow key
-```
 
 ### 🎯 Success Criteria Validation
 
@@ -155,25 +123,245 @@ Verify the following work correctly:
 - ✅ Extension maintains accuracy during rapid interactions
 - ✅ Proper cleanup prevents memory leaks
 
-### 🔍 Debugging
-
-1. **Background Script**: Check background script console in `chrome://extensions/`
-2. **Content Script**: Check page console on tracked sites
-3. **Storage Data**: Run `browser.storage.local.get('xscroll-data')` in console
-4. **Clear Data**: Run `browser.storage.local.clear()` to reset
-
 ### 📋 Known Limitations
 
 - YouTube Shorts detection is URL-based and may not catch all variations
 - Timer accuracy depends on browser tab scheduling
 - Storage locks have 5-second timeout for stuck operations
 
-## 🚀 Next Steps
 
-Phase 1 provides the foundation for:
-- Lesson threshold detection
-- UI overlay system
-- Quiz content delivery
-- Advanced analytics and reporting
+---
 
-The extension is now ready for Phase 2 development: Lesson Trigger System.
+# XScroll Browser Extension - Phase 2: Lesson Content Overlay System
+
+## Overview
+
+Phase 2 implements an educational intervention system that displays quiz lessons when users reach scroll thresholds on tracked social media platforms. The system features a three-state UI progression (lesson-begin → lesson-choice-selected → lesson-after-countdown) that temporarily interrupts browsing to present educational content.
+
+## Phase 2 Implementation Summary
+
+### ✅ Completed Features
+
+1. **Extended Storage System**
+   - Added lesson tracking fields: `lessonCount`, `nextLessonAt`, `lessonActive`
+   - Updated storage initialization and daily rollover logic
+   - Implemented lesson state management methods in `StorageUtils`
+   - Modified lesson frequency from 10 to 3 scrolls (as specified)
+
+2. **Lesson Parser Utility** (`src/utils/lesson-parser.ts`)
+   - TSV parsing for lesson content from `public/lessons/how-to-control.tsv`
+   - Random lesson selection with answer shuffling
+   - Support for question, correct answer, wrong answer, explanation, and reference fields
+   - Error handling for malformed content
+
+3. **Lesson Overlay Component** (`src/entrypoints/content/lesson-overlay.ts`)
+   - Three-state UI progression: BEGIN → CHOICE_SELECTED → AFTER_COUNTDOWN
+   - Visual feedback with green/red highlighting for correct/incorrect answers
+   - Confetti animation for correct answers
+   - 5-second countdown before close button activation
+   - Responsive design with smooth animations
+
+4. **Lesson Manager** (`src/entrypoints/content/lesson-manager.ts`)
+   - Coordinates lesson display with scroll tracking
+   - Page state management (freeze/unfreeze during lessons)
+   - Audio muting and scroll/keyboard disabling during lessons
+   - Storage listener for automatic lesson triggering
+   - Proper cleanup and state restoration
+
+5. **Content Script Integration**
+   - Lesson active checks prevent scroll/time tracking during lessons
+   - Integrated lesson manager with existing tracking system
+   - Multi-tab independence (lessons don't interfere across tabs)
+   - Event listener management during lesson display
+
+6. **Background Script Coordination**
+   - Added lesson state tracking per tab (`hasActiveLesson` field)
+   - Timer pause/resume coordination during lessons
+   - Message handling for `LESSON_STARTED` and `LESSON_ENDED` events
+   - Prevents timer conflicts when lessons are active
+
+7. **Lesson Styles** (`src/entrypoints/style.css`)
+   - Modern, responsive design with smooth animations
+   - Overlay with blurred background and centered white panel
+   - Button hover effects and state transitions
+   - Confetti particle animations
+   - Mobile-responsive layout
+
+### 🏗️ Updated Project Structure
+
+```
+src/
+├── entrypoints/
+│   ├── background.ts              # Extended with lesson state coordination
+│   ├── content.ts                 # Integrated with lesson system
+│   └── content/
+│       ├── lesson-overlay.ts      # Three-state lesson UI component (with inline styles)
+│       ├── lesson-manager.ts      # Lesson display coordination
+│       └── storage-utils.ts       # Extended with lesson tracking, simplified methods
+├── types/
+│   └── storage.ts                 # Extended with lesson fields
+└── utils/
+    ├── browser-api.ts             # Centralized cross-browser API compatibility
+    ├── lesson-parser.ts           # TSV parsing and lesson management
+    └── time-periods.ts            # Existing time utilities
+public/
+└── lessons/
+    └── how-to-control.tsv         # Sample lesson content (10 lessons)
+```
+
+### 📊 Updated Data Structure
+
+The storage structure now includes lesson tracking:
+
+```typescript
+{
+  today: {
+    morning: { scrollCount: number, timeWasted: number, lessonCount: number },
+    afternoon: { scrollCount: number, timeWasted: number, lessonCount: number },
+    night: { scrollCount: number, timeWasted: number, lessonCount: number },
+    date: string
+  },
+  yesterday: { /* same structure */ },
+  settings: {
+    enabledSites: string[],
+    lessonFrequency: 3,  // Triggers every 3 scrolls
+    frequencyMode: 'scrolls'
+  },
+  nextLessonAt: number,     // Next scroll count to trigger lesson
+  lessonActive: boolean     // Prevents tracking when lesson displayed
+}
+```
+
+## 🎯 Key Features Implemented
+
+### Lesson Trigger System
+- Lessons trigger every 3 scrolls (configurable via `lessonFrequency`)
+- Storage listener automatically detects when threshold is reached
+- Prevents multiple simultaneous lessons per tab
+
+### Three-State UI Progression
+1. **BEGIN**: Display question with two randomized answer buttons
+2. **CHOICE_SELECTED**: Show visual feedback (green/red), confetti for correct answers, explanation text, and start 5-second countdown
+3. **AFTER_COUNTDOWN**: Enable close button, allow lesson dismissal
+
+### Page State Management
+- **Freeze Page**: Mute audio/video, disable scrolling, block arrow keys
+- **Tracking Pause**: Stop scroll and time counting during lessons
+- **Multi-tab Independence**: Each tab manages lessons independently
+- **Restore State**: Unmute audio, re-enable interactions after lesson
+
+### Responsive Design
+- Mobile-friendly layout with appropriate sizing
+- Smooth animations and transitions
+- High z-index ensures overlay appears above all content
+- Accessible button states and visual feedback
+
+## Test Cases
+
+#### 1. **Lesson Trigger Test**
+1. Open TikTok, Instagram, or YouTube Shorts
+2. Scroll down exactly 3 times (wait 3+ seconds between scrolls)
+3. **Expected**: Lesson overlay appears after 3rd scroll
+4. **Expected**: Page becomes unscrollable and audio mutes
+
+#### 2. **Three-State UI Test**
+1. Trigger a lesson (3 scrolls)
+2. Click any answer button
+3. **Expected**: Button highlights green (correct) or red (incorrect)
+4. **Expected**: Confetti animation for correct answers
+5. **Expected**: Explanation text appears with "Learn More" link
+6. **Expected**: Countdown button shows "5" and counts down to "Close"
+7. Wait for countdown to complete
+8. **Expected**: Close button becomes clickable
+9. Click "Close"
+10. **Expected**: Overlay disappears, page functionality restored
+
+#### 3. **Page State Management Test**
+1. Play a video on TikTok/Instagram
+2. Trigger lesson (3 scrolls)
+3. **Expected**: Video mutes automatically
+4. Try scrolling during lesson
+5. **Expected**: Page doesn't scroll
+6. Try arrow keys during lesson
+7. **Expected**: Arrow keys don't work
+8. Complete lesson and close
+9. **Expected**: Video unmutes, scrolling works again
+
+#### 4. **Multi-Tab Independence Test**
+1. Open two tabs with tracked sites (e.g., TikTok and Instagram)
+2. Scroll 3 times in Tab 1 to trigger lesson
+3. Switch to Tab 2
+4. **Expected**: Tab 2 scrolling and tracking still works
+5. Switch back to Tab 1
+6. **Expected**: Lesson still displayed, tracking paused
+7. Complete lesson in Tab 1
+8. **Expected**: Both tabs resume normal tracking
+
+#### 5. **Lesson Count Tracking Test**
+1. Complete a lesson
+2. Check storage: `browser.storage.local.get('xscroll-data')`
+3. **Expected**: `lessonCount` incremented in current time period
+4. **Expected**: `nextLessonAt` updated to current scroll count + 3
+
+#### 6. **Answer Shuffling Test**
+1. Trigger multiple lessons (scroll 6+ times total)
+2. **Expected**: Answer positions are randomized for each lesson
+3. **Expected**: Different questions appear each time
+
+### 🎯 Success Criteria Validation
+
+Verify the following work correctly:
+
+- ✅ Lessons trigger every 3 scrolls
+- ✅ Three-state UI progression works smoothly
+- ✅ Scroll and time tracking pause during lessons
+- ✅ Page state freezes and restores properly
+- ✅ Multi-tab independence maintained
+- ✅ Lesson counts tracked in daily data
+- ✅ Visual feedback and animations work
+- ✅ Responsive design on different screen sizes
+- ✅ Audio muting and keyboard disabling during lessons
+
+### 📋 Known Limitations
+
+- Lesson content is static (loaded from TSV file)
+- YouTube Shorts detection is URL-based
+- Timer accuracy depends on browser tab   scheduling
+- Confetti animation is CSS-based (no complex physics)
+
+---
+
+## 🧹 Phase 2.1: Codebase Cleanup & Architecture Optimization
+
+### Overview
+
+Phase 2.1 focused on reducing codebase complexity and removing redundant components to create a cleaner, more maintainable architecture for future development phases.
+
+### Cleanup Summary
+
+### ✅ Completed Optimizations
+
+1. **Removed Redundant CSS System**
+   - Deleted `src/entrypoints/style.css` (empty/unused file)
+   - All styles now inline in `lesson-overlay.ts` for better compatibility
+   - Removed unused CSS import from `content.ts`
+
+2. **Centralized Browser API Compatibility**
+   - Created `src/utils/browser-api.ts` with single browser fallback
+   - Replaced 6+ individual browser API fallback declarations across files
+   - Improved code maintainability and reduced duplication
+
+3. **Storage Utils Simplification**
+   - Consolidated `getTotalScrollCount()`, `getTotalTimeWasted()`, `getTotalLessonCount()` into single `getTotals()` method
+   - Simplified `incrementLessonCount()` calculation logic
+   - Removed excessive debug logging from storage operations
+
+4. **Lesson Manager Optimization**
+   - Removed redundant state checks and verbose logging
+   - Consolidated media muting logic
+   - Simplified initialization and error handling
+
+5. **Content Script Optimization**
+   - Cleaned up timer management logging
+   - Simplified event listener setup
+   - Removed verbose debug output

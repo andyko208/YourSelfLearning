@@ -6,6 +6,7 @@ import {
   isNewDay, 
   createEmptyDailyData 
 } from '../../utils/time-periods';
+import { browser } from '../../utils/browser-api';
 
 const LOCK_TIMEOUT = 5000; // 5 seconds
 const STORAGE_KEY = 'xscroll-data';
@@ -132,9 +133,11 @@ export class StorageUtils {
           'instagram.com',
           'youtube.com'
         ],
-        lessonFrequency: 10,
+        lessonFrequency: 3,
         frequencyMode: 'scrolls'
-      }
+      },
+      nextLessonAt: 3,
+      lessonActive: false
     };
   }
   
@@ -144,7 +147,9 @@ export class StorageUtils {
     const newData: StorageData = {
       ...data,
       yesterday: data.today,
-      today: createEmptyDailyData(today)
+      today: createEmptyDailyData(today),
+      nextLessonAt: data.settings.lessonFrequency,
+      lessonActive: false
     };
     
     await browser.storage.local.set({ [STORAGE_KEY]: newData });
@@ -157,7 +162,6 @@ export class StorageUtils {
       const period = getCurrentTimePeriod();
       
       data.today[period].scrollCount += 1;
-      console.log(`Scroll count: ${data.today[period].scrollCount}`);
       
       await browser.storage.local.set({ [STORAGE_KEY]: data });
     });
@@ -169,7 +173,6 @@ export class StorageUtils {
       const period = getCurrentTimePeriod();
       
       data.today[period].timeWasted += seconds;
-      console.log(`Time wasted: ${data.today[period].timeWasted} seconds`);
       
       await browser.storage.local.set({ [STORAGE_KEY]: data });
     });
@@ -181,6 +184,14 @@ export class StorageUtils {
       const period = getCurrentTimePeriod();
       
       data.today[period].lessonCount += 1;
+      
+      // Calculate total scroll count and set next lesson threshold
+      const totalScrolls = data.today.morning.scrollCount + 
+                          data.today.afternoon.scrollCount + 
+                          data.today.night.scrollCount;
+      
+      data.nextLessonAt = totalScrolls + data.settings.lessonFrequency;
+      data.lessonActive = false;
       
       await browser.storage.local.set({ [STORAGE_KEY]: data });
     });
@@ -209,5 +220,51 @@ export class StorageUtils {
   static async getSettings(): Promise<StorageData['settings']> {
     const data = await this.getStorageData();
     return data.settings;
+  }
+
+  static async setLessonActive(active: boolean): Promise<void> {
+    await this.withLock(async () => {
+      const data = await this.getStorageData();
+      data.lessonActive = active;
+      await browser.storage.local.set({ [STORAGE_KEY]: data });
+    });
+  }
+
+  static async isLessonActive(): Promise<boolean> {
+    const data = await this.getStorageData();
+    return data.lessonActive;
+  }
+
+  static async shouldTriggerLesson(): Promise<boolean> {
+    const data = await this.getStorageData();
+    
+    // Remove global lessonActive check to allow per-tab lesson independence
+    // Each tab's lesson manager will handle its own local state checking
+    
+    // Calculate total scroll count across all periods
+    const totalScrolls = data.today.morning.scrollCount + 
+                        data.today.afternoon.scrollCount + 
+                        data.today.night.scrollCount;
+    
+    return totalScrolls >= data.nextLessonAt;
+  }
+
+  static async getTotals(): Promise<{
+    scrollCount: number;
+    timeWasted: number;
+    lessonCount: number;
+  }> {
+    const data = await this.getStorageData();
+    return {
+      scrollCount: data.today.morning.scrollCount + 
+                   data.today.afternoon.scrollCount + 
+                   data.today.night.scrollCount,
+      timeWasted: data.today.morning.timeWasted + 
+                  data.today.afternoon.timeWasted + 
+                  data.today.night.timeWasted,
+      lessonCount: data.today.morning.lessonCount + 
+                   data.today.afternoon.lessonCount + 
+                   data.today.night.lessonCount
+    };
   }
 }

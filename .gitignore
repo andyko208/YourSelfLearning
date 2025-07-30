@@ -7,15 +7,17 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+CLAUDE.md
+dist
 node_modules
 .output
 stats.html
 stats-*.json
 .wxt
 web-ext.config.ts
-test-phase1.js
 
 # Editor directories and files
+.context
 .vscode/*
 !.vscode/extensions.json
 .idea

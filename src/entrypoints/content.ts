@@ -1,4 +1,6 @@
 import { StorageUtils } from './content/storage-utils';
+import { LessonManager } from './content/lesson-manager';
+import { browser } from '../utils/browser-api';
 
 export default defineContentScript({
   matches: [
@@ -6,6 +8,7 @@ export default defineContentScript({
     '*://*.instagram.com/*', 
     '*://*.youtube.com/*'
   ],
+  cssInjectionMode: 'ui',
   main() {
     let lastScrollTime = 0;
     let isTimerRunning = false;
@@ -15,6 +18,9 @@ export default defineContentScript({
     
     const SCROLL_COOLDOWN = 2000; // 2 seconds
     const TIME_UPDATE_INTERVAL = 1000; // 1 second
+
+    // Initialize lesson manager
+    const lessonManager = new LessonManager();
 
     function shouldTrackThisPage(): boolean {
       const url = window.location.href;
@@ -41,6 +47,11 @@ export default defineContentScript({
     function handleScroll() {
       if (!shouldTrackThisPage()) return;
       
+      // Don't track scrolls if lesson is active
+      if (lessonManager.isActive()) {
+        return;
+      }
+      
       const now = Date.now();
       
       // Check cooldown
@@ -50,8 +61,13 @@ export default defineContentScript({
       
       lastScrollTime = now;
       
-      // Increment scroll count
-      StorageUtils.incrementScrollCount().catch(error => {
+      // Increment scroll count and check for lesson trigger
+      StorageUtils.incrementScrollCount().then(() => {
+        // Directly trigger lesson check after scroll count update
+        lessonManager.triggerLessonCheck().catch((error: any) => {
+          console.error('Error checking lesson trigger:', error);
+        });
+      }).catch((error: any) => {
         console.error('Error incrementing scroll count:', error);
       });
       
@@ -84,6 +100,11 @@ export default defineContentScript({
       timeUpdateInterval = window.setInterval(async () => {
         if (!isTimerRunning) return;
         
+        // Don't track time if lesson is active
+        if (lessonManager.isActive()) {
+          return;
+        }
+        
         const now = Date.now();
         const secondsElapsed = Math.floor((now - lastTimeUpdate) / 1000);
         
@@ -96,8 +117,6 @@ export default defineContentScript({
           }
         }
       }, TIME_UPDATE_INTERVAL);
-      
-      console.log('Timer started');
     }
 
     function stopTimeTracking(elapsedTime?: number) {
@@ -121,8 +140,6 @@ export default defineContentScript({
           });
         }
       }
-      
-      console.log('Timer stopped');
     }
 
     function pauseTimeTracking() {
@@ -133,8 +150,6 @@ export default defineContentScript({
         clearInterval(timeUpdateInterval);
         timeUpdateInterval = null;
       }
-      
-      console.log('Timer paused');
     }
 
     function resumeTimeTracking() {
@@ -143,6 +158,11 @@ export default defineContentScript({
       // Resume the interval
       timeUpdateInterval = window.setInterval(async () => {
         if (!isTimerRunning) return;
+        
+        // Don't track time if lesson is active
+        if (lessonManager.isActive()) {
+          return;
+        }
         
         const now = Date.now();
         const secondsElapsed = Math.floor((now - lastTimeUpdate) / 1000);
@@ -156,12 +176,10 @@ export default defineContentScript({
           }
         }
       }, TIME_UPDATE_INTERVAL);
-      
-      console.log('Timer resumed');
     }
 
     // Handle messages from background script
-    browser.runtime.onMessage.addListener((message) => {
+    browser.runtime.onMessage.addListener((message: any) => {
       switch (message.type) {
         case 'START_TIMER':
           startTimeTracking(message.startTime);
@@ -211,7 +229,7 @@ export default defineContentScript({
     if (shouldTrackThisPage()) {
       browser.runtime.sendMessage({
         type: 'REQUEST_TIMER_STATE'
-      }).catch(error => {
+      }).catch((error: any) => {
         console.log('Could not request timer state:', error);
       });
     }
@@ -219,8 +237,7 @@ export default defineContentScript({
     // Cleanup on page unload
     window.addEventListener('beforeunload', () => {
       stopTimeTracking();
+      lessonManager.cleanup();
     });
-
-    console.log('XScroll content script initialized for:', window.location.href);
   },
 });
