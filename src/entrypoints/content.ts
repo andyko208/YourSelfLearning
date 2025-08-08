@@ -16,8 +16,13 @@ export default defineContentScript({
     let timeUpdateInterval: number | null = null;
     let lastTimeUpdate = 0;
     
+    // Brain battery recharge timer (runs when NOT on tracked sites)
+    let brainRechargeInterval: number | null = null;
+    let lastBatteryUpdate = 0;
+    
     const SCROLL_COOLDOWN = 2000; // 2 seconds
     const TIME_UPDATE_INTERVAL = 1000; // 1 second
+    const BATTERY_RECHARGE_INTERVAL = 1000; // 1 second
 
     // Initialize lesson manager
     const lessonManager = new LessonManager();
@@ -96,6 +101,9 @@ export default defineContentScript({
       timerStartTime = startTime;
       lastTimeUpdate = startTime;
       
+      // Stop brain battery recharge when on tracked sites
+      stopBrainBatteryRecharge();
+      
       // Start interval to update time every second
       timeUpdateInterval = window.setInterval(async () => {
         if (!isTimerRunning) return;
@@ -140,6 +148,9 @@ export default defineContentScript({
           });
         }
       }
+      
+      // Start brain battery recharge when not on tracked sites
+      startBrainBatteryRecharge();
     }
 
     function pauseTimeTracking() {
@@ -176,6 +187,40 @@ export default defineContentScript({
           }
         }
       }, TIME_UPDATE_INTERVAL);
+    }
+
+    // Brain battery recharge functions (run when NOT on tracked sites)
+    function startBrainBatteryRecharge() {
+      if (brainRechargeInterval || isTimerRunning) return; // Don't start if already running or on tracked sites
+      
+      lastBatteryUpdate = Date.now();
+      
+      // Start interval to recharge battery every second (like time tracking)
+      brainRechargeInterval = window.setInterval(async () => {
+        if (isTimerRunning) return; // Don't recharge if on tracked sites
+        
+        const now = Date.now();
+        const secondsElapsed = Math.floor((now - lastBatteryUpdate) / 1000);
+        
+        if (secondsElapsed >= 1) {
+          try {
+            const data = await StorageUtils.getStorageData();
+            if (data.brainBattery < 100) {
+              await StorageUtils.incrementBrainBattery(secondsElapsed);
+            }
+            lastBatteryUpdate = now;
+          } catch (error) {
+            console.error('Error recharging brain battery:', error);
+          }
+        }
+      }, BATTERY_RECHARGE_INTERVAL);
+    }
+
+    function stopBrainBatteryRecharge() {
+      if (!brainRechargeInterval) return;
+      
+      clearInterval(brainRechargeInterval);
+      brainRechargeInterval = null;
     }
 
     // Handle messages from background script
@@ -232,11 +277,15 @@ export default defineContentScript({
       }).catch((error: any) => {
         console.log('Could not request timer state:', error);
       });
+    } else {
+      // Start brain battery recharge if this is not a tracked page
+      startBrainBatteryRecharge();
     }
 
     // Cleanup on page unload
     window.addEventListener('beforeunload', () => {
       stopTimeTracking();
+      stopBrainBatteryRecharge();
       lessonManager.cleanup();
     });
   },

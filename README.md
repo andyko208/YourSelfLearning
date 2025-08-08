@@ -365,3 +365,190 @@ Phase 2.1 focused on reducing codebase complexity and removing redundant compone
    - Cleaned up timer management logging
    - Simplified event listener setup
    - Removed verbose debug output
+
+---
+
+# XScroll - Phase 3: Main UI Development
+
+## Overview
+
+Phase 3 implements the primary user interface for the XScroll browser extension, providing users with a visual dashboard that displays their scrolling metrics, time wasted, and lessons completed. The interface features a minimalist black-and-white design with three metric slots styled like casino slot machines, a brain battery indicator showing remaining cognitive capacity, a reset timer countdown, and navigation to placeholder pages.
+
+## Phase 3 Implementation Summary
+
+### ✅ Completed Features
+
+1. **Extended Storage System with Brain Battery**
+   - `StorageData` now includes a numeric `brainBattery` field
+   - Battery is updated via `StorageUtils.incrementTimeWasted()`, `incrementScrollCount()`, `incrementLessonCount()`, and `incrementBrainBattery()`
+   - Daily rollover resets `brainBattery` to 100% at midnight
+   - Tracking pauses at 0% battery (time/scroll increments and lesson triggers are blocked until recovery)
+
+2. **Utility Functions for UI Formatting**
+   - Created `formatters.ts` with time, scroll count, and lesson count formatting
+   - Implemented `getTimeUntilMidnight()` for reset timer countdown
+   - Added proper time format switching ("Xm Ys" → "Xhr Ym" after 1 hour)
+   - Created threshold-based emoji selection logic in `emoji-selector.ts`
+
+3. **Casino Slot Machine UI Components**
+   - Built `MetricSlot.tsx` with slot machine styling (black borders, white background)
+   - Created emoji containers with threshold-based image swapping
+   - Implemented consistent 120px × 160px slot dimensions
+   - Added proper spacing and visual hierarchy with inset shadows
+
+4. **Brain Battery Indicator with Tooltip**
+   - `BrainBattery.tsx` displays percentage and shows calculation parameters in a tooltip
+   - Color-coded progress bar (green > 60%, orange 20-60%, red < 20%)
+   - Storage-driven updates: -1.0%/min time, -0.2%/scroll, +0.5%/lesson
+   - Tooltip documents base recharge: +0.5% per minute when away from tracked sites
+
+5. **Real-time UI Updates and Navigation**
+   - Built `ResetTimer.tsx` with live countdown to midnight reset
+   - Created `NavigationBar.tsx` with placeholder functionality for future pages
+   - Implemented storage change listeners for instant UI updates
+   - UI stays in sync reactively via storage change events (no periodic recalculation in UI)
+
+6. **Main App Integration**
+   - Replaced template `App.tsx` with complete Phase 3 implementation
+   - Added React hooks for state management and storage listeners
+   - Implemented proper cleanup and memory leak prevention
+   - Popup container sized to 480px × 550px
+
+7. **Wireframe Layout Adjustments**
+   - Repositioned reset timer to top-left corner; brain battery to top-right corner
+   - Compacted brain battery UI (24px icon, ~60px bar), right-aligned tooltip
+   - Reduced vertical spacing between metric slots and navigation bar
+   - Updated component positioning to match wireframe specifications
+
+8. **Tooltip System Reorganization**
+   - ResetTimer tooltip simplified to show all three time periods (Morning 12AM–8AM, Afternoon 8AM–4PM, Evening 4PM–12AM), with the current period bolded
+   - MetricSlot components now include hover tooltips with session breakdowns: "Morning + Afternoon + Night = Total"
+   - Session data logic centralized in `App.tsx`; tooltips update in real time
+   - Time tooltip values are cleanly formatted (e.g., `2m 3s`), via a `formatTimeClean()` util
+   - Explicit single-period bolding guarantee with `isCurrentTimePeriod()` helper
+
+9. **Brain Battery Pause/Resume + Base Recharge**
+   - All tracking operations pause when battery reaches 0% (scroll, time, and lesson triggering); lessons can still recharge
+   - Base recharge handled in content script: +0.5% per minute when timer is not running (i.e., away from tracked sites)
+   - 100% cap enforced; tooltip documents recharge rule
+
+### 🏗️ Updated Project Structure
+
+```
+src/
+├── entrypoints/
+│   ├── background.ts              # Service worker for tab/timer coordination during tracked usage
+│   ├── content.ts                 # Content script: scroll/time tracking, lesson integration, base recharge
+│   ├── content/
+│   │   ├── storage-utils.ts       # Extended with brain battery methods
+│   │   ├── lesson-manager.ts      # Lesson coordination (unchanged)
+│   │   └── lesson-overlay.ts      # UI component (unchanged)
+│   └── popup/
+│       ├── App.tsx                # Complete Phase 3 main UI
+│       ├── index.html             # Popup frame (base 480×450 viewport) and bootstrapping
+│       ├── components/
+│       │   ├── MetricSlot.tsx     # Casino slot display + session tooltips
+│       │   ├── BrainBattery.tsx   # Battery indicator + base recharge tooltip
+│       │   ├── ResetTimer.tsx     # Midnight countdown + static period tooltip
+│       │   └── NavigationBar.tsx  # Bottom navigation bar
+│       └── utils/
+│           ├── formatters.ts      # Time and metric formatting (incl. formatTimeClean)
+│           └── emoji-selector.ts  # Threshold-based emoji logic
+├── types/
+│   └── storage.ts                 # Extended with BrainBatteryState
+└── utils/
+    ├── browser-api.ts             # Browser compatibility (unchanged)
+    ├── lesson-parser.ts           # TSV parsing (unchanged)
+    └── time-periods.ts            # Time utilities (unchanged)
+```
+
+### 📊 Brain Battery Calculation System
+
+The brain battery implements a gamified cognitive capacity system:
+
+```typescript
+// Battery drains with usage:
+- Time drain: 1.0 unit per minute of browsing
+- Scroll drain: 0.2 units per scroll action
+
+// Battery recharges with learning:
++ Lesson recharge: 0.5 unit per completed lesson
+
+// Daily reset: 100% at midnight
+```
+
+## Test Cases
+
+#### 1. **Initial UI Render Test**
+1. Open extension popup
+2. **Expected**: See three metric slots with appropriate emojis (PepeTux/PepeHands based on thresholds)
+3. **Expected**: Reset timer displays at top-left corner countdown to midnight in HH:MM:SS format
+4. **Expected**: Brain battery shows 100% with green progress bar at top-right corner (compact design)
+5. **Expected**: Navigation bar shows three icons (MyLessons, MyData, MySettings)
+6. **Expected**: Both reset timer and brain battery show cursor pointer on hover
+
+#### 2. **Real-time Metric Updates Test**
+1. Browse tracked sites to accumulate scrolls and time
+2. Open popup and observe metrics
+3. Leave popup open while browsing
+4. **Expected**: Metrics update instantly when storage changes
+5. **Expected**: Emoji changes at threshold values (scroll: 5+, time: 5min+, lesson: 5+)
+6. **Expected**: Time format switches appropriately
+
+#### 3. **Brain Battery Functionality Test**
+1. Start with fresh extension (100% battery)
+2. Accumulate 10 scrolls (expect -2% from scroll drain)
+3. Wait 5 minutes browsing (expect -5% from time drain)
+4. Complete 3 lessons (expect +3% from lesson recharge)
+5. **Expected**: Final battery = 100 - 2 - 5 + 3 = 96%
+6. Hover over battery to see calculation tooltip
+
+#### 4. **Brain Battery Color States Test**
+1. Use extension until battery drops below 60%
+2. **Expected**: Progress bar changes from green to orange
+3. Continue until battery drops below 20%
+4. **Expected**: Progress bar changes from orange to red
+
+#### 5. **Navigation Placeholder Test**
+1. Click each navigation icon (MyLessons, MyData, MySettings)
+2. **Expected**: Console logs "Navigation to [page] - Coming soon!"
+3. **Expected**: Hover effects show opacity change to 0.7
+
+#### 6. **ResetTimer Tooltip Test**
+1. Hover over reset timer at top-left corner
+2. **Expected**: Tooltip appears listing Morning (12AM–8AM), Afternoon (8AM–4PM), Night (4PM–12AM)
+3. **Expected**: Only the current time period is bolded; others are normal weight
+4. Test at different times to verify bolding changes accordingly
+
+#### 7. **MetricSlot Tooltip Test**
+1. Hover each metric slot (Scroll, Time, Lesson)
+2. **Expected**: Tooltip shows "Session Breakdown" with Morning + Afternoon + Night values and Total
+3. **Expected**: Time values use clean formatting (e.g., `2m 3s`); Scroll/Lesson show raw counts
+
+#### 8. **Midnight Reset Test**
+1. Check timer countdown accuracy at different times
+2. **Expected**: Timer updates every second
+3. Wait until midnight or change system time
+4. **Expected**: All metrics reset to 0, brain battery resets to 100%
+
+### 🎯 Success Criteria Validation
+
+Verify the following work correctly:
+
+- ✅ Three metric slots display in casino slot machine style with black-and-white design
+- ✅ Emojis update based on threshold values (scroll: 5+, time: 300s+, lesson: 5+) 
+- ✅ Brain battery calculates correctly with drain/recharge formula
+- ✅ Progress bar color changes at percentage thresholds (60%, 20%)
+- ✅ Reset timer counts down to midnight accurately with live updates
+- ✅ Real-time updates work via storage change listeners (< 1 second delay)
+- ✅ Navigation bar displays placeholder functionality
+- ✅ Layout matches wireframe specifications (reset timer top-left, brain battery top-right, 480px × 550px popup)
+- ✅ Reset timer tooltip shows time periods with bold current session
+- ✅ MetricSlot tooltips show session breakdown with clean time formatting
+- ✅ All components render without errors and maintain performance
+
+### 📋 Known Limitations
+
+- Navigation pages are placeholder implementations (console logs only)
+- Brain battery tooltip positioning optimized for top-right corner but may overlap on very small screens
+- Timer updates every second which may impact battery life in mobile contexts

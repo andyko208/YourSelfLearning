@@ -21,6 +21,7 @@ export interface StorageData {
   };
   nextLessonAt: number;
   lessonActive: boolean;
+  brainBattery: number;
 }
 
 export type TimePeriod = 'morning' | 'afternoon' | 'night';

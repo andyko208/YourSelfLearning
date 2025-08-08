@@ -1,4 +1,5 @@
 import { browser } from '../utils/browser-api';
+import { StorageUtils } from './content/storage-utils';
 
 interface TabState {
   tabId: number;
@@ -123,13 +124,13 @@ export default defineBackground(() => {
   }
 
   // Tab event listeners
-  browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  browser.tabs.onUpdated.addListener(async (tabId: any, changeInfo: any, tab: any) => {
     if (changeInfo.url && tab.url) {
       await updateTabState(tabId, tab.url, tab.active);
     }
   });
 
-  browser.tabs.onActivated.addListener(async (activeInfo) => {
+  browser.tabs.onActivated.addListener(async (activeInfo: any) => {
     // Mark all tabs as inactive
     activeTabs.forEach(tabState => {
       tabState.isActive = false;
@@ -142,7 +143,7 @@ export default defineBackground(() => {
     }
   });
 
-  browser.tabs.onRemoved.addListener(async (tabId) => {
+  browser.tabs.onRemoved.addListener(async (tabId: any) => {
     // Clean up removed tab
     if (activeTimer && activeTimer.tabId === tabId) {
       activeTimer = null;
@@ -152,7 +153,7 @@ export default defineBackground(() => {
   });
 
   // Window focus events
-  browser.windows.onFocusChanged.addListener(async (windowId) => {
+  browser.windows.onFocusChanged.addListener(async (windowId: any) => {
     if (windowId === browser.windows.WINDOW_ID_NONE) {
       // All windows lost focus - stop timer
       if (activeTimer) {
@@ -174,7 +175,7 @@ export default defineBackground(() => {
   });
 
   // Handle messages from content scripts
-  browser.runtime.onMessage.addListener(async (message, sender) => {
+  browser.runtime.onMessage.addListener(async (message: any, sender: any) => {
     if (message.type === 'SCROLL_DETECTED' && sender.tab?.id) {
       // Content script detected a scroll - this is handled in content script
       // Background script just needs to be aware
@@ -230,11 +231,11 @@ export default defineBackground(() => {
   });
 
   // Initialize with current active tab
-  browser.tabs.query({ active: true, currentWindow: true }).then(async (tabs) => {
+  browser.tabs.query({ active: true, currentWindow: true }).then(async (tabs: any[]) => {
     if (tabs.length > 0 && tabs[0].url && tabs[0].id) {
       await updateTabState(tabs[0].id, tabs[0].url, true);
     }
   });
 
-  console.log('XScroll background script initialized');
+  console.log('🚀 XScroll background script initialized');
 });

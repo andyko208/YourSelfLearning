@@ -61,7 +61,7 @@ class LessonParser {
       this.lessons = this.parseTSV(content);
       this.loaded = true;
       
-      console.log(`Loaded ${this.lessons.length} lessons from TSV file`);
+      // console.log(`Loaded ${this.lessons.length} lessons from TSV file`);
     } catch (error) {
       console.error('Error loading lessons:', error);
       throw error;

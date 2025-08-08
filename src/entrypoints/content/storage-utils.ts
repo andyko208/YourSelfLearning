@@ -137,7 +137,8 @@ export class StorageUtils {
         frequencyMode: 'scrolls'
       },
       nextLessonAt: 3,
-      lessonActive: false
+      lessonActive: false,
+      brainBattery: 100 // Initialize brain battery to 100%
     };
   }
   
@@ -149,41 +150,103 @@ export class StorageUtils {
       yesterday: data.today,
       today: createEmptyDailyData(today),
       nextLessonAt: data.settings.lessonFrequency,
-      lessonActive: false
+      lessonActive: false,
+      brainBattery: 100 // Reset brain battery to 100% daily
     };
     
     await browser.storage.local.set({ [STORAGE_KEY]: newData });
     return newData;
   }
   
+  // Check if tracking operations should be paused due to 0% battery
+  private static async isBatteryDead(): Promise<boolean> {
+    const data = await this.getStorageData();
+    return data.brainBattery <= 0;
+  }
+
+
+  static async incrementBrainBattery(seconds: number): Promise<void> {
+    await this.withLock(async () => {
+      const data = await this.getStorageData();
+      
+      // Recharge brain battery by +1.0%/minute (convert seconds to minutes)
+      const minutesRecharged = seconds / 60;
+      const batteryRecharge = minutesRecharged * 0.5;
+      const oldPercentage = data.brainBattery;
+      data.brainBattery = Math.max(0, Math.min(100, data.brainBattery + batteryRecharge));
+      
+      // if (batteryRecharge > 0) {
+      //   console.log(`🔋 Brain battery recharged: ${oldPercentage}% → ${data.brainBattery}% (+${batteryRecharge.toFixed(2)}%)`);
+      // }
+      
+      await browser.storage.local.set({ [STORAGE_KEY]: data });
+    });
+  }
+
   static async incrementScrollCount(): Promise<void> {
+    // Check battery state before incrementing
+    if (await this.isBatteryDead()) {
+      // console.log('🔋 Scroll counting paused - brain battery at 0%');
+      return;
+    }
+    
     await this.withLock(async () => {
       const data = await this.getStorageData();
       const period = getCurrentTimePeriod();
       
       data.today[period].scrollCount += 1;
       
+      // Drain brain battery by 0.2% per scroll
+      const oldBattery = data.brainBattery;
+      data.brainBattery = Math.max(0, data.brainBattery - 0.2);
+      
+      // console.log(`🔋 Brain battery drained by scroll: ${oldBattery.toFixed(2)}% → ${data.brainBattery.toFixed(2)}% (-0.2%)`);
+      
       await browser.storage.local.set({ [STORAGE_KEY]: data });
     });
   }
   
   static async incrementTimeWasted(seconds: number): Promise<void> {
+    // Check battery state before incrementing
+    if (await this.isBatteryDead()) {
+      // console.log('🔋 Time tracking paused - brain battery at 0%');
+      return;
+    }
+    
     await this.withLock(async () => {
       const data = await this.getStorageData();
       const period = getCurrentTimePeriod();
       
       data.today[period].timeWasted += seconds;
       
+      // Drain brain battery by -1.0%/minute (convert seconds to minutes)
+      const minutesDrained = seconds / 60;
+      const batteryDrain = minutesDrained * 1.0;
+      const oldBattery = data.brainBattery;
+      data.brainBattery = Math.max(0, data.brainBattery - batteryDrain);
+      
+      // if (batteryDrain > 0) {
+        // console.log(`🔋 Brain battery drained by time: ${oldBattery.toFixed(2)}% → ${data.brainBattery.toFixed(2)}% (-${batteryDrain.toFixed(2)}%)`);
+      // }
+      
       await browser.storage.local.set({ [STORAGE_KEY]: data });
     });
   }
   
   static async incrementLessonCount(): Promise<void> {
+    // NOTE: No battery check here - completing lessons RECHARGES battery
+    // This allows users to recover from 0% battery by completing lessons
     await this.withLock(async () => {
       const data = await this.getStorageData();
       const period = getCurrentTimePeriod();
       
       data.today[period].lessonCount += 1;
+      
+      // Recharge brain battery by 0.5% per lesson completed
+      const oldBattery = data.brainBattery;
+      data.brainBattery = Math.min(100, data.brainBattery + 0.5);
+      
+      // console.log(`🔋 Brain battery recharged by lesson: ${oldBattery.toFixed(2)}% → ${data.brainBattery.toFixed(2)}% (+1.0%)`);
       
       // Calculate total scroll count and set next lesson threshold
       const totalScrolls = data.today.morning.scrollCount + 
@@ -236,6 +299,12 @@ export class StorageUtils {
   }
 
   static async shouldTriggerLesson(): Promise<boolean> {
+    // Check battery state before allowing lesson triggers
+    if (await this.isBatteryDead()) {
+      console.log('🔋 Lesson triggering paused - brain battery at 0%');
+      return false;
+    }
+    
     const data = await this.getStorageData();
     
     // Remove global lessonActive check to allow per-tab lesson independence
