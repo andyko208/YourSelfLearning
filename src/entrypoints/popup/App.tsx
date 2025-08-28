@@ -3,12 +3,14 @@ import { MetricSlot } from './components/MetricSlot';
 import { BrainBattery } from './components/BrainBattery';
 import { ResetTimer } from './components/ResetTimer';
 import { NavigationBar } from './components/NavigationBar';
+import { DateSelector } from './components/DateSelector';
 import { formatTime, formatScrollCount, formatLessonCount } from './utils/formatters';
 import { StorageUtils } from '../content/storage-utils';
 import { browser } from '../../utils/browser-api';
 import type { PeriodData } from '../../types/storage';
 
 export default function App() {
+  const [selectedDate, setSelectedDate] = useState<'today' | 'yesterday'>('today');
   const [scrollCount, setScrollCount] = useState(0);
   const [timeWasted, setTimeWasted] = useState(0);
   const [lessonCount, setLessonCount] = useState(0);
@@ -25,53 +27,50 @@ export default function App() {
     night: { scrollCount: 0, timeWasted: 0, lessonCount: 0 }
   });
 
+  // Load data based on selected date
+  const loadDataForDate = async (date: 'today' | 'yesterday') => {
+    const totals = await StorageUtils.getTotalsByDate(date);
+    const dailyData = await StorageUtils.getDataByDate(date);
+    
+    setScrollCount(totals.scrollCount);
+    setTimeWasted(totals.timeWasted);
+    setLessonCount(totals.lessonCount);
+    
+    setSessionData({
+      morning: dailyData.morning,
+      afternoon: dailyData.afternoon,
+      night: dailyData.night
+    });
+  };
+
+  // Handle date change
+  const handleDateChange = (date: 'today' | 'yesterday') => {
+    setSelectedDate(date);
+    loadDataForDate(date);
+  };
+
   useEffect(() => {
-    // Load initial data
-    const loadData = async () => {
-      const timestamp = new Date().toISOString();
-      
-      const totals = await StorageUtils.getTotals();
-      
-      setScrollCount(totals.scrollCount);
-      setTimeWasted(totals.timeWasted);
-      setLessonCount(totals.lessonCount);
-      
-      // Load session data for tooltips
-      const todayData = await StorageUtils.getTodayData();
-      setSessionData({
-        morning: todayData.morning,
-        afternoon: todayData.afternoon,
-        night: todayData.night
-      });
-      
-      // Get stored brain battery (simple number)
+    // Load initial data for selected date
+    loadDataForDate(selectedDate);
+    
+    // Load brain battery (always from today)
+    const loadBrainBattery = async () => {
       const data = await StorageUtils.getStorageData();
       setBrainPercentage(data.brainBattery);
     };
-    loadData();
+    loadBrainBattery();
     
-    // Listen for storage changes and update UI
+    // Listen for storage changes and update UI (only for "today")
     const handleStorageChange = async (changes: any) => {
-      const timestamp = new Date().toISOString();
-      
       if (changes['xscroll-data']) {
-        const totals = await StorageUtils.getTotals();
-        
-        setScrollCount(totals.scrollCount);
-        setTimeWasted(totals.timeWasted);
-        setLessonCount(totals.lessonCount);
-        
-        // Update session data
-        const todayData = await StorageUtils.getTodayData();
-        setSessionData({
-          morning: todayData.morning,
-          afternoon: todayData.afternoon,
-          night: todayData.night
-        });
-        
-        // Get updated brain battery from storage
+        // Always update brain battery
         const data = await StorageUtils.getStorageData();
         setBrainPercentage(data.brainBattery);
+        
+        // Only update metrics if "today" is selected
+        if (selectedDate === 'today') {
+          await loadDataForDate('today');
+        }
       }
     };
     
@@ -80,8 +79,7 @@ export default function App() {
     return () => {
       browser.storage.onChanged.removeListener(handleStorageChange);
     };
-  }, []);
-
+  }, [selectedDate]);
 
   return (
     <div style={{
@@ -97,8 +95,7 @@ export default function App() {
       <ResetTimer />
       
       <BrainBattery
-        percentage={Math.floor(brainPercentage)} // change to an integer 
-        // percentage={Number(brainPercentage.toFixed(2))} // change to an integer floor later
+        percentage={Math.floor(brainPercentage)}
         scrollCount={scrollCount}
         timeWasted={timeWasted}
         lessonCount={lessonCount}
@@ -113,8 +110,14 @@ export default function App() {
         width: '100%',
         paddingBottom: '40px' // Account for navigation bar
       }}>
-        {brainPercentage === 0 ? (
-          // Brain fried state - darkened panel with red text
+        {/* Date Selector */}
+        <DateSelector 
+          selectedDate={selectedDate} 
+          onDateChange={handleDateChange} 
+        />
+        
+        {brainPercentage === 0 && selectedDate === 'today' ? (
+          // Brain fried state - only show for today
           <div style={{
             backgroundColor: '#2a2a2a',
             border: '3px solid black',
@@ -133,7 +136,7 @@ export default function App() {
               textAlign: 'center',
               lineHeight: '1.4'
             }}>
-              YOUR BRAIN IS FRIED,<br />come back later!
+              BRAIN FRIED!
             </div>
           </div>
         ) : (
@@ -153,6 +156,7 @@ export default function App() {
               value={scrollCount}
               label={formatScrollCount(scrollCount)}
               sessionData={sessionData}
+              selectedDate={selectedDate}
               isBatteryDead={false}
             />
             <MetricSlot
@@ -160,6 +164,7 @@ export default function App() {
               value={timeWasted}
               label={formatTime(timeWasted)}
               sessionData={sessionData}
+              selectedDate={selectedDate}
               isBatteryDead={false}
             />
             <MetricSlot
@@ -167,6 +172,7 @@ export default function App() {
               value={lessonCount}
               label={formatLessonCount(lessonCount)}
               sessionData={sessionData}
+              selectedDate={selectedDate}
               isBatteryDead={false}
             />
           </div>

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { getEmojiForMetric } from '../utils/emoji-selector';
 import { formatTime, formatTimeClean, formatScrollCount, formatLessonCount } from '../utils/formatters';
 import type { PeriodData } from '../../../types/storage';
 
@@ -12,12 +11,19 @@ interface MetricSlotProps {
     afternoon: PeriodData;
     night: PeriodData;
   };
+  selectedDate?: 'today' | 'yesterday';
   isBatteryDead: boolean;
 }
 
-export const MetricSlot: React.FC<MetricSlotProps> = ({ type, value, label, sessionData, isBatteryDead }) => {
+export const MetricSlot: React.FC<MetricSlotProps> = ({ 
+  type, 
+  value, 
+  label, 
+  sessionData, 
+  selectedDate = 'today',
+  isBatteryDead 
+}) => {
   const [showTooltip, setShowTooltip] = useState(false);
-  const emojiPath = getEmojiForMetric(value, type);
   
   // Get the appropriate value for each session based on type
   const getSessionValue = (period: PeriodData) => {
@@ -50,6 +56,26 @@ export const MetricSlot: React.FC<MetricSlotProps> = ({ type, value, label, sess
   const afternoonValue = getSessionValue(sessionData.afternoon);
   const nightValue = getSessionValue(sessionData.night);
   
+  // Check if we have any data for yesterday
+  const hasData = selectedDate === 'today' || (morningValue > 0 || afternoonValue > 0 || nightValue > 0);
+  
+  // Get display value and label text
+  const getDisplayValue = () => {
+    switch (type) {
+      case 'scroll': return value.toString();
+      case 'time': return formatTimeClean(value);
+      case 'lesson': return value.toString();
+    }
+  };
+  
+  const getLabelText = () => {
+    switch (type) {
+      case 'scroll': return 'scrolled';
+      case 'time': return 'wasted';
+      case 'lesson': return 'lessoned';
+    }
+  };
+  
   return (
     <div 
       style={{
@@ -72,29 +98,33 @@ export const MetricSlot: React.FC<MetricSlotProps> = ({ type, value, label, sess
       onMouseLeave={() => setShowTooltip(false)}
     >
       <div style={{
-        width: '60px',
-        height: '60px',
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#f5f5f5',
-        borderRadius: '8px',
-        border: '2px solid black'
+        flex: 1,
+        gap: '8px'
       }}>
-        <img 
-          src={emojiPath} 
-          alt={`${type} emoji`}
-          style={{ width: '48px', height: '48px' }}
-        />
-      </div>
-      <div style={{
-        fontSize: '14px',
-        fontWeight: 'bold',
-        textAlign: 'center',
-        color: 'black',
-        lineHeight: '1.2'
-      }}>
-        {label}
+        <div style={{
+          fontSize: '24px',
+          fontWeight: 'bold',
+          textAlign: 'center',
+          color: 'red',
+          lineHeight: '1.1',
+          textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
+        }}>
+          {getDisplayValue()}
+        </div>
+        <div style={{
+          fontSize: '12px',
+          fontWeight: '600',
+          textAlign: 'center',
+          color: '#64748b',
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px',
+        }}>
+          {getLabelText()}
+        </div>
       </div>
       
       {showTooltip && (
@@ -112,20 +142,24 @@ export const MetricSlot: React.FC<MetricSlotProps> = ({ type, value, label, sess
           zIndex: 1000,
           boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
         }}>
-          <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
-            Session Breakdown
-          </div>
-          <div>+ Morning: {formatTooltipValue(morningValue)}</div>
-          <div>+ Afternoon: {formatTooltipValue(afternoonValue)}</div>
-          <div>+ Night: {formatTooltipValue(nightValue)}</div>
-          <div style={{ 
-            borderTop: '1px solid black', 
-            marginTop: '4px', 
-            paddingTop: '4px',
-            fontWeight: 'bold' 
-          }}>
-            Total: {formatTooltipValue(value)}
-          </div>
+          {
+            <>
+              <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
+                {selectedDate === 'today' ? "Today's Sessions" : "Yesterday's Sessions"}
+              </div>
+              <div>+ Morning: {formatTooltipValue(morningValue)}</div>
+              <div>+ Afternoon: {formatTooltipValue(afternoonValue)}</div>
+              <div>+ Night: {formatTooltipValue(nightValue)}</div>
+              <div style={{ 
+                borderTop: '1px solid black', 
+                marginTop: '4px', 
+                paddingTop: '4px',
+                fontWeight: 'bold' 
+              }}>
+                Total: {formatTooltipValue(value)}
+              </div>
+            </>
+          }
         </div>
       )}
     </div>

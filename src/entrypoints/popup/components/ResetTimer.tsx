@@ -47,7 +47,8 @@ export const ResetTimer: React.FC = () => {
         position: 'absolute',
         top: '20px',
         left: '20px',
-        fontSize: '14px',
+        height: '20px',
+        fontSize: '12px',
         fontWeight: 'bold',
         color: '#666',
         cursor: 'pointer'
@@ -55,7 +56,7 @@ export const ResetTimer: React.FC = () => {
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
     >
-      Reset in {timeLeft}
+      RESET IN {timeLeft}
       
       {showTooltip && (
         <div style={{

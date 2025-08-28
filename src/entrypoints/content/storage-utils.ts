@@ -336,4 +336,44 @@ export class StorageUtils {
                    data.today.night.lessonCount
     };
   }
+
+  static async getTotalsByDate(date: 'today' | 'yesterday'): Promise<{
+    scrollCount: number;
+    timeWasted: number;
+    lessonCount: number;
+  }> {
+    const data = await this.getStorageData();
+    const targetData = date === 'today' ? data.today : data.yesterday;
+    
+    // Handle case where yesterday data doesn't exist
+    if (!targetData) {
+      return {
+        scrollCount: 0,
+        timeWasted: 0,
+        lessonCount: 0
+      };
+    }
+    
+    return {
+      scrollCount: targetData.morning.scrollCount + 
+                   targetData.afternoon.scrollCount + 
+                   targetData.night.scrollCount,
+      timeWasted: targetData.morning.timeWasted + 
+                  targetData.afternoon.timeWasted + 
+                  targetData.night.timeWasted,
+      lessonCount: targetData.morning.lessonCount + 
+                   targetData.afternoon.lessonCount + 
+                   targetData.night.lessonCount
+    };
+  }
+
+  static async getDataByDate(date: 'today' | 'yesterday'): Promise<DailyData> {
+    const data = await this.getStorageData();
+    if (date === 'today') {
+      return data.today;
+    } else {
+      // Return yesterday data or empty data if doesn't exist
+      return data.yesterday || createEmptyDailyData(getYesterdayDateString());
+    }
+  }
 }

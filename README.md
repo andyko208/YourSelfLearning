@@ -165,7 +165,7 @@ Phase 2 implements an educational intervention system that displays quiz lessons
    - Coordinates lesson display with scroll tracking
    - Page state management (freeze/unfreeze during lessons)
    - Audio muting and scroll/keyboard disabling during lessons
-   - Storage listener for automatic lesson triggering
+   - Direct trigger check after scroll increment (storage listener removed to avoid race conditions)
    - Proper cleanup and state restoration
 
 5. **Content Script Integration**
@@ -180,11 +180,9 @@ Phase 2 implements an educational intervention system that displays quiz lessons
    - Message handling for `LESSON_STARTED` and `LESSON_ENDED` events
    - Prevents timer conflicts when lessons are active
 
-7. **Lesson Styles** (`src/entrypoints/style.css`)
-   - Modern, responsive design with smooth animations
-   - Overlay with blurred background and centered white panel
-   - Button hover effects and state transitions
-   - Confetti particle animations
+7. **Lesson Styles** (inline in `lesson-overlay.ts`)
+   - All overlay styles are inline to avoid CSS injection conflicts
+   - Centered white panel, button states, and confetti animations included
    - Mobile-responsive layout
 
 ### 🏗️ Updated Project Structure
@@ -326,7 +324,7 @@ Verify the following work correctly:
 
 - Lesson content is static (loaded from TSV file)
 - YouTube Shorts detection is URL-based
-- Timer accuracy depends on browser tab   scheduling
+- Timer accuracy depends on browser tab scheduling
 - Confetti animation is CSS-based (no complex physics)
 
 ---
@@ -388,11 +386,11 @@ Phase 3 implements the primary user interface for the XScroll browser extension,
    - Created `formatters.ts` with time, scroll count, and lesson count formatting
    - Implemented `getTimeUntilMidnight()` for reset timer countdown
    - Added proper time format switching ("Xm Ys" → "Xhr Ym" after 1 hour)
-   - Created threshold-based emoji selection logic in `emoji-selector.ts`
+   - Implemented clean metric value highlighting in place of emoji images
 
 3. **Casino Slot Machine UI Components**
    - Built `MetricSlot.tsx` with slot machine styling (black borders, white background)
-   - Created emoji containers with threshold-based image swapping
+   - Replaced emoji containers with prominent metric value display
    - Implemented consistent 120px × 160px slot dimensions
    - Added proper spacing and visual hierarchy with inset shadows
 
@@ -424,7 +422,7 @@ Phase 3 implements the primary user interface for the XScroll browser extension,
    - ResetTimer tooltip simplified to show all three time periods (Morning 12AM–8AM, Afternoon 8AM–4PM, Evening 4PM–12AM), with the current period bolded
    - MetricSlot components now include hover tooltips with session breakdowns: "Morning + Afternoon + Night = Total"
    - Session data logic centralized in `App.tsx`; tooltips update in real time
-   - Time tooltip values are cleanly formatted (e.g., `2m 3s`), via a `formatTimeClean()` util
+   - Time tooltip values use clean HH:MM:SS formatting (e.g., `00:02:03`) via `formatTimeClean()`
    - Explicit single-period bolding guarantee with `isCurrentTimePeriod()` helper
 
 9. **Brain Battery Pause/Resume + Base Recharge**
@@ -452,8 +450,7 @@ src/
 │       │   ├── ResetTimer.tsx     # Midnight countdown + static period tooltip
 │       │   └── NavigationBar.tsx  # Bottom navigation bar
 │       └── utils/
-│           ├── formatters.ts      # Time and metric formatting (incl. formatTimeClean)
-│           └── emoji-selector.ts  # Threshold-based emoji logic
+│           └── formatters.ts      # Time and metric formatting utilities
 ├── types/
 │   └── storage.ts                 # Extended with BrainBatteryState
 └── utils/
@@ -481,10 +478,10 @@ The brain battery implements a gamified cognitive capacity system:
 
 #### 1. **Initial UI Render Test**
 1. Open extension popup
-2. **Expected**: See three metric slots with appropriate emojis (PepeTux/PepeHands based on thresholds)
+2. **Expected**: See three metric slots with prominent metric values highlighted in red
 3. **Expected**: Reset timer displays at top-left corner countdown to midnight in HH:MM:SS format
 4. **Expected**: Brain battery shows 100% with green progress bar at top-right corner (compact design)
-5. **Expected**: Navigation bar shows three icons (MyLessons, MyData, MySettings)
+5. **Expected**: Navigation bar shows three icons (Library, Home, Settings)
 6. **Expected**: Both reset timer and brain battery show cursor pointer on hover
 
 #### 2. **Real-time Metric Updates Test**
@@ -492,15 +489,15 @@ The brain battery implements a gamified cognitive capacity system:
 2. Open popup and observe metrics
 3. Leave popup open while browsing
 4. **Expected**: Metrics update instantly when storage changes
-5. **Expected**: Emoji changes at threshold values (scroll: 5+, time: 5min+, lesson: 5+)
+5. **Expected**: Values update numerically without emojis
 6. **Expected**: Time format switches appropriately
 
 #### 3. **Brain Battery Functionality Test**
 1. Start with fresh extension (100% battery)
 2. Accumulate 10 scrolls (expect -2% from scroll drain)
 3. Wait 5 minutes browsing (expect -5% from time drain)
-4. Complete 3 lessons (expect +3% from lesson recharge)
-5. **Expected**: Final battery = 100 - 2 - 5 + 3 = 96%
+4. Complete 3 lessons (expect +1.5% from lesson recharge)
+5. **Expected**: Final battery = 100 - 2 - 5 + 1.5 = 94.5%
 6. Hover over battery to see calculation tooltip
 
 #### 4. **Brain Battery Color States Test**
@@ -510,7 +507,7 @@ The brain battery implements a gamified cognitive capacity system:
 4. **Expected**: Progress bar changes from orange to red
 
 #### 5. **Navigation Placeholder Test**
-1. Click each navigation icon (MyLessons, MyData, MySettings)
+1. Click each navigation icon (Library, Home, Settings)
 2. **Expected**: Console logs "Navigation to [page] - Coming soon!"
 3. **Expected**: Hover effects show opacity change to 0.7
 
@@ -523,7 +520,7 @@ The brain battery implements a gamified cognitive capacity system:
 #### 7. **MetricSlot Tooltip Test**
 1. Hover each metric slot (Scroll, Time, Lesson)
 2. **Expected**: Tooltip shows "Session Breakdown" with Morning + Afternoon + Night values and Total
-3. **Expected**: Time values use clean formatting (e.g., `2m 3s`); Scroll/Lesson show raw counts
+3. **Expected**: Time values use HH:MM:SS (e.g., `00:02:03`); Scroll/Lesson show raw counts
 
 #### 8. **Midnight Reset Test**
 1. Check timer countdown accuracy at different times
@@ -536,7 +533,7 @@ The brain battery implements a gamified cognitive capacity system:
 Verify the following work correctly:
 
 - ✅ Three metric slots display in casino slot machine style with black-and-white design
-- ✅ Emojis update based on threshold values (scroll: 5+, time: 300s+, lesson: 5+) 
+- ✅ Numeric-only display without emojis; thresholds reflected by values 
 - ✅ Brain battery calculates correctly with drain/recharge formula
 - ✅ Progress bar color changes at percentage thresholds (60%, 20%)
 - ✅ Reset timer counts down to midnight accurately with live updates
@@ -552,3 +549,130 @@ Verify the following work correctly:
 - Navigation pages are placeholder implementations (console logs only)
 - Brain battery tooltip positioning optimized for top-right corner but may overlap on very small screens
 - Timer updates every second which may impact battery life in mobile contexts
+
+---
+
+# XScroll - Phase 4: Date Selection & Historical Metrics Display
+
+## Overview
+
+Phase 4 implements date selection functionality allowing users to view their daily metrics for both "Today" and "Yesterday". This builds on the existing Phase 3 UI by adding a toggle component above the metric slots and modifying the display logic to show historical data. The implementation maintains all existing functionality while providing users with comparison capabilities between their current and previous day's performance.
+
+## Phase 4 Implementation Summary
+
+### ✅ Completed Features
+
+1. **Date Selector Component** (`src/entrypoints/popup/components/DateSelector.tsx`)
+   - Clean toggle UI with "Today" and "Yesterday" buttons
+   - Casino slot styling matching existing aesthetic (black border, white background)
+   - Active state highlighting with darker background (#e0e0e0)
+   - Smooth 0.2s transition animations between states
+   - Hover effects for inactive buttons (#f5f5f5)
+
+2. **Extended Storage Utils** (`src/entrypoints/content/storage-utils.ts`)
+   - Added `getTotalsByDate(date: 'today' | 'yesterday')` method for date-aware queries
+   - Added `getDataByDate(date: 'today' | 'yesterday')` for retrieving full daily data
+   - Graceful fallback for missing yesterday data (returns zeros)
+   - Maintains backward compatibility with existing `getTotals()` method
+
+3. **App State Management** (`src/entrypoints/popup/App.tsx`)
+   - Single `selectedDate` state variable managing date selection
+   - `loadDataForDate()` function for fetching date-specific metrics
+   - Real-time updates only apply to "today" selection
+   - Brain battery and reset timer remain "today" only features
+   - Integrated DateSelector component above metric slots
+
+4. **Updated MetricSlot Component** (`src/entrypoints/popup/components/MetricSlot.tsx`)
+   - Accepts `selectedDate` prop for context-aware display
+   - Tooltips show "Today's Sessions" or "Yesterday's Sessions" headers
+   - "No data available for yesterday" message when appropriate
+   - Maintains consistent metric value display formatting for both dates
+   - Preserves all existing styling and animations
+
+5. **Brain Fried State Logic**
+   - "BRAIN FRIED!" message only shows for "today" with 0% battery
+   - Yesterday view always shows normal metric slots regardless of battery
+   - Consistent user experience across date selections
+
+### 🏗️ Updated Project Structure
+
+```
+src/
+├── entrypoints/
+│   ├── background.ts              # No changes needed
+│   ├── content.ts                 # Fixed TypeScript errors in catch blocks
+│   ├── content/
+│   │   ├── storage-utils.ts       # Extended with date-aware methods
+│   │   ├── lesson-manager.ts      # No changes needed
+│   │   └── lesson-overlay.ts      # No changes needed
+│   └── popup/
+│       ├── App.tsx                # Added date selection state management
+│       ├── components/
+│       │   ├── DateSelector.tsx   # NEW: Date toggle component
+│       │   ├── MetricSlot.tsx     # Updated with selectedDate prop
+│       │   ├── BrainBattery.tsx   # No changes needed
+│       │   ├── ResetTimer.tsx     # No changes needed
+│       │   └── NavigationBar.tsx  # No changes needed
+│       └── utils/
+│           └── formatters.ts      # No changes needed
+├── types/
+│   └── storage.ts                 # No changes needed
+└── utils/
+    ├── browser-api.ts             # No changes needed
+    ├── lesson-parser.ts           # No changes needed
+    └── time-periods.ts            # No changes needed
+```
+
+## Test Cases
+
+#### 1. **Date Selection UI Functionality**
+1. Open extension popup
+2. **Expected**: DateSelector shows "Today" as active by default
+3. Click "Yesterday" button
+4. **Expected**: Selection switches with smooth animation
+5. **Expected**: Metrics update to show yesterday's data
+
+#### 2. **Today Metrics with Real-time Updates**
+1. Select "Today" and browse tracked sites
+2. **Expected**: Metrics update in real-time as you browse
+3. **Expected**: Brain battery decreases with usage
+4. **Expected**: All tooltips show "Today's Sessions"
+
+#### 3. **Yesterday Metrics (Static Display)**
+1. Select "Yesterday" 
+2. Continue browsing while popup is open
+3. **Expected**: Yesterday metrics remain static
+4. **Expected**: Brain battery continues updating (today only); yesterday view remains static
+5. **Expected**: Reset timer continues countdown
+
+#### 4. **No Yesterday Data Handling**
+1. Clear extension data or use fresh install
+2. Select "Yesterday"
+3. **Expected**: All metrics show "0" values; tooltips show zeroed session breakdown
+
+#### 5. **Brain Battery State with Date Selection**
+1. Drain battery to 0% on "Today"
+2. **Expected**: "YOUR BRAIN IS FRIED" message appears
+3. Switch to "Yesterday"
+4. **Expected**: Normal metric slots display (no fried message)
+
+### 🎯 Success Criteria Validation
+
+Verify the following work correctly:
+
+- ✅ Date selection toggle works smoothly with clear visual feedback
+- ✅ "Today" shows live-updating current metrics
+- ✅ "Yesterday" shows static historical metrics
+- ✅ Graceful handling when yesterday data doesn't exist
+- ✅ Brain battery and reset timer remain "today" only features
+- ✅ All existing Phase 3 functionality preserved
+- ✅ Single state variable manages date selection efficiently
+- ✅ Tooltips provide context-aware date information
+- ✅ Consistent metric value display for both dates
+- ✅ Professional UI matching existing design language
+
+### 📋 Known Limitations
+
+- Historical data limited to yesterday only (no weekly/monthly views)
+- Date selection resets to "Today" on popup close/reopen
+- Yesterday data updates only at midnight rollover

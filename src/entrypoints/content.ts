@@ -80,7 +80,7 @@ export default defineContentScript({
       browser.runtime.sendMessage({
         type: 'SCROLL_DETECTED',
         timestamp: now
-      }).catch(error => {
+      }).catch((error: any) => {
         console.log('Could not send scroll message to background:', error);
       });      
     }
@@ -120,7 +120,7 @@ export default defineContentScript({
           try {
             await StorageUtils.incrementTimeWasted(secondsElapsed);
             lastTimeUpdate = now;
-          } catch (error) {
+          } catch (error: any) {
             console.error('Error updating time:', error);
           }
         }
@@ -143,7 +143,7 @@ export default defineContentScript({
         const remainingTime = finalSeconds - Math.floor((lastTimeUpdate - timerStartTime) / 1000);
         
         if (remainingTime > 0) {
-          StorageUtils.incrementTimeWasted(remainingTime).catch(error => {
+          StorageUtils.incrementTimeWasted(remainingTime).catch((error: any) => {
             console.error('Error updating final time:', error);
           });
         }
@@ -182,7 +182,7 @@ export default defineContentScript({
           try {
             await StorageUtils.incrementTimeWasted(secondsElapsed);
             lastTimeUpdate = now;
-          } catch (error) {
+          } catch (error: any) {
             console.error('Error updating time:', error);
           }
         }
@@ -209,7 +209,7 @@ export default defineContentScript({
               await StorageUtils.incrementBrainBattery(secondsElapsed);
             }
             lastBatteryUpdate = now;
-          } catch (error) {
+          } catch (error: any) {
             console.error('Error recharging brain battery:', error);
           }
         }

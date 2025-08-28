@@ -23,10 +23,11 @@ export const formatTimeClean = (seconds: number): string => {
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
 
-  if (hours > 0) {
-    return `${hours}hr ${minutes}m`;
-  }
-  return `${minutes}m ${secs}s`;
+  // if (hours > 0) {
+  //   return `${hours}:${minutes}`;
+  // }
+  // return `${minutes}:${secs}`;
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
 
 export const getTimeUntilMidnight = (): string => {
