@@ -117,309 +117,313 @@ public/
 
       - Lesson content is static (loaded from TSV file)
 
-# XScroll - Phase 4: Date Selection & Historical Metrics Display
+# XScroll - Phase 5: Settings Page Implementation
 
-## Overview
+## Project Overview
 
-Phase 4 implements date selection functionality allowing users to view their daily metrics for both "Today" and "Yesterday". This builds on the existing Phase 3 UI by adding a toggle component above the metric slots and modifying the display logic to show historical data. The implementation maintains all existing functionality while providing users with comparison capabilities between their current and previous day's performance.
+Phase 5 implements a Settings page that provides users with configuration options for lesson frequency and platform selection. The Settings page replaces the main content area when the Settings navigation button is clicked, maintaining the existing navigation bar at the bottom. This implementation introduces proper page routing between Home and Settings pages while preserving all existing functionality from previous phases.
 
-## Phase 4 Implementation Objectives
+### Key Features to Implement
+- Page routing system to switch between Home and Settings views
+- **Lesson Frequency** selector with three modes: Often (1-3 scrolls), Sometimes (4-6 scrolls), Barely (7-9 scrolls)
+- **Platforms** multi-selector with horizontal scrolling showing 3 platforms at a time
+- Real-time storage synchronization for settings changes
+- Visual feedback for active selections and smooth transitions
 
-### Primary Goals
-1. **Date Selection UI**: Add a clean toggle component for Today/Yesterday selection
-2. **Historical Data Display**: Show metrics from selected date in existing metric slots
-3. **Graceful Fallback**: Handle cases where yesterday data doesn't exist
-4. **Maintain Live Indicators**: Keep brain battery and reset timer as "today" only features
+## Project Structure
 
-### Design Principles
-- **Simplicity**: Minimal state management with single `selectedDate` variable
-- **Accuracy**: Reuse existing formatters and calculation logic
-- **Consistency**: Match existing black/white casino slot aesthetic
-- **Performance**: Leverage existing storage listeners without additional overhead
-
-## Current Codebase Status (Phase 3 Complete)
-
-### ✅ Existing Infrastructure
-- Complete metric tracking system with scroll, time, and lesson counting
-- Brain battery with drain/recharge calculations
-- Storage structure with `today` and `yesterday` data objects
-- Real-time UI updates via storage change listeners
-- Casino slot machine styling with numeric-only values (no emojis)
-- Reset timer with midnight countdown
-- Navigation bar with SVG icons (recently updated from PNG files)
-
-### 🏗️ Current Project Structure
 ```
 src/
 ├── entrypoints/
-│   ├── background.ts              # Tab coordination (no changes needed)
-│   ├── content.ts                 # Tracking system (no changes needed)
-│   ├── content/
-│   │   ├── storage-utils.ts       # Storage methods (extend for date-aware totals)
-│   │   ├── lesson-manager.ts      # Lesson system (no changes needed)
-│   │   └── lesson-overlay.ts      # Lesson UI (no changes needed)
-│   └── popup/
-│       ├── App.tsx                # Main UI (add date selection state)
-│       ├── index.html             # Popup frame (no changes needed)
-│       ├── components/
-│       │   ├── MetricSlot.tsx     # Extend to accept date-specific data
-│       │   ├── BrainBattery.tsx   # Keep as "today" only (no changes needed)
-│       │   ├── ResetTimer.tsx     # Keep as live countdown (no changes needed)
-│       │   └── NavigationBar.tsx  # Updated with SVG icons (no changes needed)
-│       └── utils/
-│           ├── formatters.ts      # Reuse existing functions (no changes needed)
-│           └── formatters.ts      # Reuse existing functions (no changes needed)
+│   ├── popup/
+│   │   ├── App.tsx                    # Modified: Add page routing logic
+│   │   ├── pages/                     # NEW: Page components directory
+│   │   │   ├── HomePage.tsx           # NEW: Extract current main UI
+│   │   │   └── SettingsPage.tsx       # NEW: Settings interface
+│   │   ├── components/
+│   │   │   ├── NavigationBar.tsx      # Modified: Add onNavigate callback
+│   │   │   ├── settings/              # NEW: Settings-specific components
+│   │   │   │   ├── LessonFrequency.tsx  # NEW: Frequency selector
+│   │   │   │   └── PlatformSelector.tsx # NEW: Platform multi-select
+│   │   │   └── [existing components]
+│   │   └── utils/
+│   │       └── [existing utils]
+│   └── content/
+│       └── storage-utils.ts           # Extended: Add updateSettings method
+├── types/
+│   └── storage.ts                     # Extended: Add frequency mode types
+└── assets/                            # NEW: Platform icons directory
+    └── platform-icons/
+        ├── instagram.svg
+        ├── tiktok.svg
+        └── youtube-shorts.svg
 ```
 
-## Implementation Steps
+## Specific Implementation Steps
 
-### Step 1: Create Date Selector Component
-**File**: `src/entrypoints/popup/components/DateSelector.tsx`
+### Step 1: Create Page Routing Infrastructure
+**File: `src/entrypoints/popup/App.tsx`**
 
-Create a toggle component that:
-- Renders two clickable buttons: "Today" and "Yesterday"
-- Uses casino slot styling (black border, white background, inset shadow)
-- Highlights active selection with darker background
-- Accepts `selectedDate` prop and `onDateChange` callback
-- Positions above metric slots with appropriate spacing
-- Matches existing UI dimensions and spacing patterns
+Modify the main App component to handle page navigation:
+- Add `currentPage` state variable with type `'home' | 'settings'`
+- Create `handleNavigation` function that updates currentPage
+- Conditionally render HomePage or SettingsPage based on currentPage
+- Pass handleNavigation to NavigationBar as onNavigate prop
+- Ensure navigation state persists during popup session
 
-**Key Requirements**:
-- Component size: ~200px width, ~40px height
-- Button styling consistent with existing metric slots
-- Smooth transition animation (0.2s) between states
-- Clear visual distinction between active/inactive states
+### Step 2: Extract Home Page Component
+**File: `src/entrypoints/popup/pages/HomePage.tsx`**
 
-### Step 2: Extend Storage Utils for Date-Aware Queries
-**File**: `src/entrypoints/content/storage-utils.ts`
+Extract the existing main UI into a dedicated HomePage component:
+- Move all existing metric display logic from App.tsx
+- Include DateSelector, MetricSlot components, BrainBattery, and ResetTimer
+- Accept brainPercentage and other necessary props from App
+- Maintain all storage listeners and real-time update functionality
+- Preserve "BRAIN FRIED" conditional rendering logic
 
-Add method `getTotalsByDate(date: 'today' | 'yesterday')`:
-- Extend existing `getTotals()` logic to accept date parameter
-- Return same format: `{ scrolls, timeWasted, lessons }`
-- Handle case where yesterday data doesn't exist (return zeros)
-- Reuse existing calculation logic for consistency
-- No additional storage fields required
+### Step 3: Update Navigation Bar for Page Switching
+**File: `src/entrypoints/popup/components/NavigationBar.tsx`**
 
-**Key Requirements**:
-- Maintain existing `getTotals()` method for backward compatibility
-- Default to "today" when no date specified
-- Graceful fallback for missing yesterday data
-- Use existing time period summation logic
+Modify NavigationBar to support actual page navigation:
+- Accept `onNavigate` prop with type `(page: 'home' | 'settings' | 'library') => void`
+- Accept `currentPage` prop to highlight active page
+- Call onNavigate instead of console.log when buttons are clicked
+- Update selected state based on currentPage prop
+- Keep library navigation as placeholder (console.log)
 
-### Step 3: Update App.tsx for Date Selection State
-**File**: `src/entrypoints/popup/App.tsx`
+### Step 4: Create Settings Page Layout
+**File: `src/entrypoints/popup/pages/SettingsPage.tsx`**
 
-Implement date selection state management:
-- Add `selectedDate: 'today' | 'yesterday'` to React state (default: 'today')
-- Create `handleDateChange` callback function
-- Modify existing data loading to be date-aware
-- Pass selected date to MetricSlot components
-- Import and render DateSelector component above metric grid
+Build the main Settings page component:
+- Create container with 480px × 490px content area (accounting for 60px navigation bar)
+- Add "Settings" header at top with consistent typography
+- Create two sections: "Lesson Frequency" and "Platforms"
+- Load current settings from storage on mount
+- Implement save mechanism that updates storage in real-time
+- Add proper spacing between sections (24px gap)
 
-**Key Requirements**:
-- Use existing storage listener patterns
-- Maintain real-time updates for "today" when selected
-- Static display for "yesterday" data (no live updates needed)
-- Preserve existing component hierarchy and styling
+### Step 5: Implement Lesson Frequency Selector
+**File: `src/entrypoints/popup/components/settings/LessonFrequency.tsx`**
 
-### Step 4: Update MetricSlot Components for Date Display
-**File**: `src/entrypoints/popup/components/MetricSlot.tsx`
+Create the frequency selector component with three pill options:
+- Design pill-shaped buttons with black border and white background
+- Implement three options: "Often (1-3)", "Sometimes (4-6)", "Barely (7-9)"
+- Map selections to numeric values: Often=3, Sometimes=6, Barely=9
+- Highlight selected option with darker background (#e0e0e0)
+- Add hover effects for unselected options (#f5f5f5)
+- Accept `value` and `onChange` props for controlled component pattern
 
-Extend MetricSlot to handle date-specific data:
-- Add `selectedDate` prop to component interface
-- Modify tooltip to show date-aware session breakdown
-- Update props to accept pre-calculated totals instead of fetching internally
-- Maintain existing numeric formatting (no emoji thresholds)
-- Keep existing visual styling and animations
+### Step 6: Build Platform Selector Component
+**File: `src/entrypoints/popup/components/settings/PlatformSelector.tsx`**
 
-**Key Requirements**:
-- Backward compatible with existing prop structure
-- Use passed-in data instead of internal storage queries
-- Update tooltip text to reflect selected date
-- Preserve emoji selection logic for both dates
+Create horizontal scrolling platform selector:
+- Display 3 platform cards at a time (each ~140px wide)
+- Implement left/right arrow navigation buttons
+- Create platform cards with icon placeholder area (48×48px) and label below
+- Support multi-selection with checkbox overlay or border highlight
+- Initialize with ["Instagram", "TikTok", "YouTube Shorts"]
+- Add smooth horizontal scroll animation (transform: translateX)
+- Disable arrows at scroll boundaries
+- Accept `selectedPlatforms` and `onChange` props
 
-### Step 5: Implement Graceful Yesterday Data Fallback
-**File**: Multiple files as needed
+### Step 7: Extend Storage Utilities
+**File: `src/entrypoints/content/storage-utils.ts`**
 
-Handle edge cases for missing yesterday data:
-- Display "0" values and zeroed period breakdown when yesterday data is empty
-- Keep tooltips consistent with today’s format
-- Maintain consistent UI layout regardless of data availability
+Add settings update functionality:
+```typescript
+static async updateSettings(updates: Partial<StorageData['settings']>): Promise<boolean> {
+  return this.withLock(async () => {
+    const data = await this.getStorageData();
+    data.settings = { ...data.settings, ...updates };
+    
+    // Update nextLessonAt if frequency changed
+    if (updates.lessonFrequency !== undefined) {
+      const currentScroll = /* get current total scroll count */;
+      data.nextLessonAt = currentScroll + updates.lessonFrequency;
+    }
+    
+    await browser.storage.local.set({ [STORAGE_KEY]: data });
+    return true;
+  });
+}
+```
 
-**Key Requirements**:
-- No error states or broken UI when yesterday is empty
-- Consistent zero-value emoji display (use lowest threshold emojis)
-- Clear user feedback about data availability
-- Seamless experience for new users
+### Step 8: Add Platform Icon Assets
+**Directory: `src/assets/platform-icons/`**
 
-### Step 6: Update Tooltip System for Date Context
-**File**: `src/entrypoints/popup/components/MetricSlot.tsx`
+Create or source SVG icons for each platform:
+- Instagram icon (black outline style)
+- TikTok icon (black outline style)
+- YouTube Shorts icon (black outline style)
+- Ensure icons are 24×24 viewBox for consistency
+- Use currentColor for fill to allow styling
 
-Enhance tooltips with date-aware information:
-- Modify session breakdown tooltip to show selected date's periods
-- Add date context to tooltip headers (e.g., "Today's Sessions" vs "Yesterday's Sessions")
-- Maintain existing clean time formatting with `formatTimeClean()`
-- Keep current period bolding only for "today" selection
+### Step 9: Implement Settings Persistence
+**In: `src/entrypoints/popup/pages/SettingsPage.tsx`**
 
-**Key Requirements**:
-- Tooltip positioning and styling unchanged
-- Clear date context in tooltip headers
-- Preserve existing formatting functions
-- Handle both today/yesterday data gracefully
+Connect UI components to storage:
+- Load settings on component mount using `StorageUtils.getStorageData()`
+- Debounce updates by 500ms to prevent excessive storage writes
+- Update storage when frequency selection changes
+- Update storage when platform selections change
+- Show subtle save confirmation (e.g., brief checkmark animation)
 
-## Testing Protocol
+### Step 10: Polish Transitions and State Management
+**Across all modified files:**
 
-### Test Case 1: Date Selection UI Functionality
+Add finishing touches:
+- Implement smooth fade transitions between page switches (opacity animation)
+- Preserve scroll position when switching pages
+- Add loading states during storage operations
+- Ensure settings changes apply immediately to content scripts
+- Test multi-tab synchronization of settings
+
+## Testing Script
+
+### Test 1: Page Navigation
+```javascript
+// Test basic navigation between pages
 1. Open extension popup
-2. **Expected**: DateSelector shows "Today" as active by default
-3. Click "Yesterday" button
-4. **Expected**: Selection switches with smooth animation, Yesterday becomes active
-5. Click "Today" button
-6. **Expected**: Selection switches back to Today
-7. **Expected**: UI styling matches existing casino slot aesthetic
+2. Verify Home page displays with all metrics
+3. Click Settings icon in navigation bar
+4. Expect: Settings page appears with smooth transition
+5. Expect: Settings icon becomes highlighted/selected
+6. Click Home icon
+7. Expect: Return to Home page with metrics intact
+8. Expect: Home icon becomes highlighted
+```
 
-### Test Case 2: Today Metrics Display
-1. Browse tracked sites to accumulate some data (scroll 5+ times, spend 3+ minutes)
-2. Open popup with "Today" selected
-3. **Expected**: Metrics show current day's accumulated data
-4. **Expected**: Numeric values update; no emojis used
-5. **Expected**: Brain battery and reset timer display current live data
-6. Leave popup open and continue browsing
-7. **Expected**: Today metrics update in real-time
+### Test 2: Lesson Frequency Selection
+```javascript
+// Test frequency selector functionality
+1. Navigate to Settings page
+2. Observe current frequency selection (default: Often/3)
+3. Click "Sometimes (4-6)"
+4. Expect: Visual feedback showing selection change
+5. Scroll 4 times on tracked site
+6. Expect: Lesson appears after 6th scroll (not 3rd)
+7. Return to settings and verify selection persisted
+```
 
-### Test Case 3: Yesterday Metrics Display (With Data)
-1. Ensure yesterday data exists in storage
-2. Open popup and select "Yesterday"
-3. **Expected**: Metrics show yesterday's final totals
-4. **Expected**: Numeric values reflect yesterday totals (no emojis)
-5. **Expected**: Brain battery and reset timer remain unchanged (today only)
-6. Continue browsing while popup is open
-7. **Expected**: Yesterday metrics remain static (no live updates)
+### Test 3: Platform Multi-Selection
+```javascript
+// Test platform selector with scrolling
+1. Navigate to Settings page
+2. See 3 platforms visible: Instagram, TikTok, YouTube Shorts
+3. All should be selected by default
+4. Deselect Instagram
+5. Visit Instagram.com
+6. Expect: No scroll tracking or lessons on Instagram
+7. Visit TikTok.com
+8. Expect: Normal tracking still works on TikTok
+9. Re-select Instagram and verify tracking resumes
+```
 
-### Test Case 4: Yesterday Metrics Display (No Data)
-1. Clear extension data or test with fresh install
-2. Open popup and select "Yesterday"
-3. **Expected**: All metrics show "0" values
-4. **Expected**: Appropriate emojis for zero values (lowest threshold)
-5. Hover over metric slots
-6. **Expected**: Tooltips show the same display format as today but with all 0s
+### Test 4: Horizontal Platform Scrolling
+```javascript
+// Test when more platforms added (future-proofing)
+1. Add more platforms to the list (Twitter, Reddit, Facebook)
+2. Verify only 3 visible at once
+3. Click right arrow
+4. Expect: Smooth scroll to show next 3 platforms
+5. Click left arrow
+6. Expect: Scroll back to first 3 platforms
+7. Verify arrow states (disabled at boundaries)
+```
 
-### Test Case 5: Tooltip Accuracy Test
-1. Accumulate data in different time periods (morning, afternoon, night)
-2. Select "Today" and hover over metric slots
-3. **Expected**: Tooltips show "Today's Sessions" with period breakdown
-4. Select "Yesterday" and hover over metric slots
-5. **Expected**: Tooltips show "Yesterday's Sessions" with period breakdown
-6. **Expected**: Time formatting uses `formatTimeClean()` consistently
+### Test 5: Settings Persistence
+```javascript
+// Test settings save across sessions
+1. Change frequency to "Barely (7-9)"
+2. Deselect YouTube Shorts
+3. Close extension popup
+4. Reopen extension popup
+5. Navigate to Settings
+6. Expect: "Barely" still selected
+7. Expect: YouTube Shorts still deselected
+8. Check browser.storage.local.get('xscroll-data')
+9. Verify settings.lessonFrequency = 9
+10. Verify settings.enabledSites excludes YouTube
+```
 
-### Test Case 6: Navigation and Live Features
-1. Select "Yesterday" in popup
-2. **Expected**: Navigation bar remains fully functional
-3. **Expected**: Reset timer continues live countdown
-4. **Expected**: Brain battery shows current percentage and live tooltip
-5. Switch between dates multiple times
-6. **Expected**: Live features (battery, timer) unaffected by date selection
+### Test 6: Multi-Tab Settings Sync
+```javascript
+// Test settings apply across all tabs
+1. Open two tabs with tracked sites
+2. Change frequency to "Sometimes" in popup
+3. Both tabs should respect new 6-scroll threshold
+4. Disable TikTok in settings
+5. TikTok tab should stop tracking immediately
+6. Instagram tab should continue normally
+```
 
-### Test Case 7: Real-time Updates During Date Selection
-1. Select "Today" in popup
-2. Browse tracked sites to generate new data
-3. **Expected**: "Today" metrics update immediately
-4. Switch to "Yesterday" 
-5. Continue browsing
-6. **Expected**: "Yesterday" metrics remain static
-7. Switch back to "Today"
-8. **Expected**: Updated metrics from recent browsing activity
-
-### Test Case 8: Storage Integration Edge Cases
-1. Test during midnight rollover (or simulate by changing system time)
-2. **Expected**: Date selector continues working correctly
-3. **Expected**: "Yesterday" now shows previous "today" data
-4. Test with corrupted storage data
-5. **Expected**: Graceful fallback to zero values
-6. **Expected**: No errors or crashes in UI
+### Test 7: Edge Cases
+```javascript
+// Test boundary conditions
+1. Rapidly toggle frequency selections
+   Expect: No crashes, last selection wins
+2. Toggle all platforms off
+   Expect: No tracking on any site
+3. Close popup during settings change
+   Expect: Last completed change persists
+4. Test with 0% brain battery
+   Expect: Settings still accessible and functional
+```
 
 ## Success Criteria
 
-### ✅ Functional Requirements
-- Date selection toggle works smoothly with clear visual feedback
-- "Today" shows live-updating current metrics
-- "Yesterday" shows static historical metrics  
-- Graceful handling when yesterday data doesn't exist
-- Brain battery and reset timer remain "today" only features
-- All existing Phase 3 functionality preserved
+- [ ] Page routing works smoothly between Home and Settings
+- [ ] Navigation bar correctly highlights current page
+- [ ] Lesson frequency selector updates storage immediately
+- [ ] Platform selector supports multi-selection
+- [ ] Horizontal scrolling works for platform list
+- [ ] Settings persist across popup sessions
+- [ ] Changes apply immediately to content scripts
+- [ ] UI maintains consistent black-and-white casino aesthetic
+- [ ] All transitions are smooth (< 300ms)
+- [ ] No memory leaks from event listeners
+- [ ] TypeScript types are complete and strict
+- [ ] Storage updates are atomic with proper locking
 
-### ✅ Technical Requirements
-- Single `selectedDate` state variable manages date selection
-- Reuse existing storage structure and formatters
-- No additional storage fields or complex state management
-- Date-aware tooltips with proper context headers
-- Consistent emoji threshold logic for both dates
-- Real-time updates only affect "today" selection
+## Notes for Implementation
 
-### ✅ UI/UX Requirements
-- DateSelector matches existing casino slot aesthetic
-- Smooth animations and transitions between states
-- Clear visual hierarchy (date selector → metrics → navigation)
-- Tooltips provide helpful context about selected date
-- No layout shifts or visual inconsistencies
-- Professional appearance matching existing design language
+1. **State Management**: Keep settings as local state in SettingsPage, sync to storage on change
+2. **Performance**: Debounce storage writes to prevent excessive I/O
+3. **Styling**: Maintain consistent casino slot machine aesthetic throughout
+4. **Accessibility**: Ensure keyboard navigation works for all controls
+5. **Error Handling**: Gracefully handle storage failures with user feedback
+6. **Platform Icons**: Start with placeholder divs if icons not ready
+7. **Future Extensibility**: Design platform selector to easily add more platforms later
 
 ## Implementation Notes
 
-### Code Organization
-- Create new `DateSelector.tsx` component following existing patterns
-- Extend `StorageUtils` with date-aware methods
-- Modify `App.tsx` minimally - just add date state and pass props
-- Update `MetricSlot.tsx` to be data-driven rather than storage-driven
+Phase 5 implementation successfully completed with all core features functional:
 
-### Performance Considerations
-- Leverage existing storage listeners (no additional overhead)
-- Cache yesterday data to avoid repeated storage queries
-- Use derived state instead of additional storage fields
-- Maintain existing real-time update patterns for today
+- **Page Routing System**: App.tsx now manages navigation state and conditionally renders HomePage, SettingsPage, or Library placeholder
+- **Component Architecture**: HomePage extracted from App.tsx with proper state management and prop passing for brain battery
+- **Settings Components**: LessonFrequency and PlatformSelector built with casino aesthetic matching existing design system
+- **Storage Integration**: updateSettings method extended to recalculate nextLessonAt when frequency changes
+- **Icon System**: Created inline SVG components for platform icons (Instagram, TikTok, YouTube) in black outline style
+- **Real-time Updates**: Settings changes save immediately to storage and apply across extension contexts
+- **TypeScript Types**: All components properly typed with strict TypeScript compliance
 
-### SVG Icon Integration
-- NavigationBar.tsx already updated with inline SVG code replacing PNG imports
-- New DateSelector component should follow same pattern if icons are needed
-- Maintain consistent icon sizing and styling across components
+## Additionally Addressed Problems
 
-This phase should result in a clean, intuitive date selection interface that enhances user ability to compare their daily performance while maintaining the extension's core educational intervention functionality.
+1. **Updated Storage Utils Method**
+   - Extended updateSettings() to recalculate nextLessonAt when lessonFrequency changes
+   - Ensures lesson trigger timing updates immediately when user changes frequency settings
 
-## Additionally Addressed Problems - Phase 4
+2. **Platform Domain Consistency**
+   - Platform selector uses correct domain names matching storage system (instagram.com, tiktok.com, youtube.com)
+   - Maintains compatibility with existing tracking system
 
-1. **Fixed TypeScript Compilation Errors**
-   - Root Cause: Untyped `error` parameters in catch blocks throughout `content.ts` causing TypeScript compilation failures
-   - Solution: Added explicit `any` type annotations to all error parameters in catch blocks
-   - Files affected: `src/entrypoints/content.ts` (5 instances at lines 72, 75, 83, 119, 146, 181, 208)
-   - This ensures the extension compiles without TypeScript errors while maintaining error handling functionality
+3. **Component State Management**  
+   - Settings page manages local state and debounces storage updates
+   - HomePage receives brain battery as props to maintain single source of truth in App.tsx
+   - Navigation state properly managed at app level with callback system
 
-2. **Maintained Browser API Consistency**
-   - Continued use of centralized `browser-api.ts` for cross-browser compatibility
-   - No duplicate browser API declarations introduced in new components
-   - All new code uses existing `import { browser } from '../../utils/browser-api'` pattern
-   - Avoided WXT's built-in browser imports to prevent conflicts
-
-3. **Preserved Storage Structure Integrity**
-   - No new storage fields added (reused existing `today`/`yesterday` structure from Phase 1)
-   - Date-aware methods (`getTotalsByDate`, `getDataByDate`) added without breaking existing storage patterns
-   - Backward compatibility maintained for all existing storage operations
-   - `getTotals()` method preserved for components that don't need date selection
-
-4. **Component Prop Updates**
-   - MetricSlot component updated to accept optional `selectedDate` prop with default value 'today'
-   - Ensures backward compatibility if prop is not provided
-   - Tooltip logic updated to be context-aware based on selected date
-   - Maintains all existing functionality while adding new capabilities
-
-5. **Lesson Trigger Coordination (Race-condition hardening)**
-   - Root Cause: Storage change listener in lesson manager could double-trigger lessons across tabs
-   - Solution: Removed storage listener; content script now calls `lessonManager.triggerLessonCheck()` immediately after `incrementScrollCount()`
-   - Files affected: `src/entrypoints/content.ts`, `src/entrypoints/content/lesson-manager.ts`, `src/entrypoints/content/storage-utils.ts`
-
-6. **Inline Overlay Styles**
-   - Rationale: Avoid CSS injection mode conflicts and host page overrides
-   - Implementation: All overlay styles defined inline in `lesson-overlay.ts`; removed reference to external style file in docs
-
-7. **Navigation Items Renamed**
-   - Updated labels to `Library`, `Home`, `Settings` and added filled/outline SVG toggles
-   - File: `src/entrypoints/popup/components/NavigationBar.tsx`
+4. **Fixed Time Tracking Inconsistency**
+   - Root Cause: Background script used hardcoded TRACKED_SITES array with restrictive YouTube filtering
+   - Content script used storage settings but background script only started timers for hardcoded URLs
+   - Solution: Updated background script to use same storage-based shouldTrackUrl() logic as content script
+   - Result: Time tracking now works on ALL enabled sites, not just TikTok/Instagram/YouTube Shorts

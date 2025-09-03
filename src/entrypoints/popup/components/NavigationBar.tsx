@@ -70,17 +70,24 @@ const Icon: React.FC<{ id: string; selected: boolean }> = ({ id, selected }) => 
     }
 };
 
-export const NavigationBar: React.FC = () => {
-  const [selectedId, setSelectedId] = React.useState<string>('home');
+interface NavigationBarProps {
+  currentPage: 'home' | 'settings' | 'library';
+  onNavigate: (page: 'home' | 'settings' | 'library') => void;
+}
 
+export const NavigationBar: React.FC<NavigationBarProps> = ({ currentPage, onNavigate }) => {
   const handleNavClick = (
     id: string,
     e?: React.MouseEvent<HTMLButtonElement>
   ) => {
-    setSelectedId(id);
     // Blur to avoid persistent default focus ring after mouse clicks
     e?.currentTarget?.blur();
-    console.log(`Navigation to ${id} - Coming soon!`);
+    
+    if (id === 'library') {
+      console.log(`Navigation to ${id} - Coming soon!`);
+    } else {
+      onNavigate(id as 'home' | 'settings' | 'library');
+    }
   };
   
   return (
@@ -98,7 +105,7 @@ export const NavigationBar: React.FC = () => {
       padding: '0 20px'
     }}>
       {navItems.map((item) => {
-        const isSelected = selectedId === item.id;
+        const isSelected = currentPage === item.id;
         return (
             <button
             key={item.id}

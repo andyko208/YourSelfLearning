@@ -131,12 +131,16 @@ export class StorageUtils {
         enabledSites: [
           'tiktok.com',
           'instagram.com',
-          'youtube.com'
+          'youtube.com',
+          'x.com',
+          'reddit.com',
+          'facebook.com',
+          'amazon.com'
         ],
         lessonFrequency: 3,
         frequencyMode: 'scrolls'
       },
-      nextLessonAt: 3,
+      nextLessonAt: this.getRandomFrequency(3),
       lessonActive: false,
       brainBattery: 100 // Initialize brain battery to 100%
     };
@@ -149,7 +153,7 @@ export class StorageUtils {
       ...data,
       yesterday: data.today,
       today: createEmptyDailyData(today),
-      nextLessonAt: data.settings.lessonFrequency,
+      nextLessonAt: this.getRandomFrequency(data.settings.lessonFrequency),
       lessonActive: false,
       brainBattery: 100 // Reset brain battery to 100% daily
     };
@@ -253,7 +257,7 @@ export class StorageUtils {
                           data.today.afternoon.scrollCount + 
                           data.today.night.scrollCount;
       
-      data.nextLessonAt = totalScrolls + data.settings.lessonFrequency;
+      data.nextLessonAt = totalScrolls + this.getRandomFrequency(data.settings.lessonFrequency);
       data.lessonActive = false;
       
       await browser.storage.local.set({ [STORAGE_KEY]: data });
@@ -265,6 +269,14 @@ export class StorageUtils {
       const data = await this.getStorageData();
       
       data.settings = { ...data.settings, ...newSettings };
+      
+      // Update nextLessonAt if frequency changed
+      if (newSettings.lessonFrequency !== undefined) {
+        const currentTotalScrolls = data.today.morning.scrollCount + 
+                                   data.today.afternoon.scrollCount + 
+                                   data.today.night.scrollCount;
+        data.nextLessonAt = currentTotalScrolls + this.getRandomFrequency(newSettings.lessonFrequency);
+      }
       
       await browser.storage.local.set({ [STORAGE_KEY]: data });
     });
@@ -316,6 +328,15 @@ export class StorageUtils {
                         data.today.night.scrollCount;
     
     return totalScrolls >= data.nextLessonAt;
+  }
+
+  private static getRandomFrequency(frequencyMode: number): number {
+    switch (frequencyMode) {
+      case 3: return Math.floor(Math.random() * 2) + 1; // Often: 1-3 scrolls
+      case 6: return Math.floor(Math.random() * 2) + 4; // Sometimes: 4-6 scrolls  
+      case 9: return Math.floor(Math.random() * 2) + 7; // Barely: 7-9 scrolls
+      default: return frequencyMode; // fallback for safety
+    }
   }
 
   static async getTotals(): Promise<{

@@ -45,13 +45,13 @@ export const ResetTimer: React.FC = () => {
     <div 
       style={{
         position: 'absolute',
-        top: '20px',
         left: '20px',
         height: '20px',
         fontSize: '12px',
         fontWeight: 'bold',
         color: '#666',
-        cursor: 'pointer'
+        cursor: 'pointer',
+        zIndex: 1001
       }}
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
@@ -69,7 +69,7 @@ export const ResetTimer: React.FC = () => {
           padding: '12px',
           fontSize: '12px',
           whiteSpace: 'nowrap',
-          zIndex: 1000,
+          zIndex: 1002,
           boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
         }}>
           <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>

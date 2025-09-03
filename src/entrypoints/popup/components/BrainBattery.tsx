@@ -30,12 +30,12 @@ export const BrainBattery: React.FC<BrainBatteryProps> = ({
     <div 
       style={{
         position: 'absolute',
-        top: '20px',
         right: '20px',
         display: 'flex',
         alignItems: 'center',
         gap: '8px',
-        cursor: 'pointer'
+        cursor: 'pointer',
+        zIndex: 1001
       }}
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
@@ -109,16 +109,16 @@ export const BrainBattery: React.FC<BrainBatteryProps> = ({
           padding: '12px',
           fontSize: '12px',
           whiteSpace: 'nowrap',
-          zIndex: 1000,
+          zIndex: 1002,
           boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
         }}>
           <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
             Brain Battery
           </div>
-          <div>Time drain: -1.0/min</div>
-          <div>Scroll drain: -0.2/scroll</div>
-          <div>Lesson recharge: +0.5/lesson</div>
-          <div>Base recharge: +1.0/min away</div>
+          <div>- 1.0/min stay</div>
+          <div>- 0.2/scroll</div>
+          <div>+ 0.5/lesson</div>
+          <div>+ 1.0/min away</div>
         </div>
       )}
     </div>

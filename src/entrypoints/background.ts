@@ -18,31 +18,32 @@ export default defineBackground(() => {
   const activeTabs = new Map<number, TabState>();
   let activeTimer: ActiveTimer | null = null;
   
-  const TRACKED_SITES = [
-    'tiktok.com',
-    'instagram.com',
-    'youtube.com/shorts',
-    'youtube.com/watch'
-  ];
-
-  function isTrackedSite(url: string): boolean {
-    return TRACKED_SITES.some(site => url.includes(site));
-  }
-
-  function shouldTrackUrl(url: string): boolean {
+  async function shouldTrackUrl(url: string): Promise<boolean> {
     if (!url) return false;
     
-    // Check for YouTube Shorts specifically
-    if (url.includes('youtube.com')) {
-      return url.includes('/shorts/') || 
-             (url.includes('/watch') && url.includes('&list=') && url.includes('shorts'));
+    try {
+      const settings = await StorageUtils.getSettings();
+      const enabledSites = settings.enabledSites;
+      
+      if (!enabledSites || enabledSites.length === 0) {
+        return false;
+      }
+      
+      for (const site of enabledSites) {
+        if (url.includes(site)) {
+          return true;
+        }
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error checking enabled sites in background:', error);
+      return false;
     }
-    
-    return isTrackedSite(url);
   }
 
   async function updateTabState(tabId: number, url: string, isActive: boolean = false) {
-    const isTracked = shouldTrackUrl(url);
+    const isTracked = await shouldTrackUrl(url);
     const existingTab = activeTabs.get(tabId);
     
     activeTabs.set(tabId, {

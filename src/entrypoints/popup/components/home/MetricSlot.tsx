@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { formatTime, formatTimeClean, formatScrollCount, formatLessonCount } from '../utils/formatters';
-import type { PeriodData } from '../../../types/storage';
+import { formatTime, formatTimeClean, formatScrollCount, formatLessonCount } from '../../utils/formatters';
+import type { PeriodData } from '../../../../types/storage';
 
 interface MetricSlotProps {
   type: 'scroll' | 'time' | 'lesson';
@@ -82,12 +82,13 @@ export const MetricSlot: React.FC<MetricSlotProps> = ({
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        padding: '20px',
+        padding: '16px',
         border: '3px solid black',
         borderRadius: '12px',
         backgroundColor: 'white',
-        width: '120px',
-        height: '160px',
+        width: '100%',
+        maxWidth: '132px',
+        height: '148px',
         justifyContent: 'center',
         gap: '12px',
         boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)',

@@ -4,9 +4,13 @@ import { browser } from '../utils/browser-api';
 
 export default defineContentScript({
   matches: [
-    '*://*.tiktok.com/*',
     '*://*.instagram.com/*', 
-    '*://*.youtube.com/*'
+    '*://*.tiktok.com/*',
+    '*://*.youtube.com/*',
+    '*://*.x.com/*',
+    '*://*.reddit.com/*',
+    '*://*.facebook.com/*',
+    '*://*.amazon.com/*'
   ],
   cssInjectionMode: 'ui',
   main() {
@@ -27,30 +31,43 @@ export default defineContentScript({
     // Initialize lesson manager
     const lessonManager = new LessonManager();
 
-    function shouldTrackThisPage(): boolean {
+    async function shouldTrackThisPage(): Promise<boolean> {
       const url = window.location.href;
       
-      // TikTok - all pages
-      if (url.includes('tiktok.com')) {
-        return true;
+      try {
+        // Get enabled sites from storage
+        const settings = await StorageUtils.getSettings();
+        const enabledSites = settings.enabledSites;
+        
+        // If no sites are enabled, don't track anything
+        if (!enabledSites || enabledSites.length === 0) {
+          return false;
+        }
+        
+        // Check if current domain matches any enabled site
+        for (const site of enabledSites) {
+          if (url.includes(site)) {
+            // // Additional URL checks for specific platforms
+            // if (site === 'youtube.com') {
+            //   // YouTube - only Shorts and some watch pages
+            //   return url.includes('/shorts/') || 
+            //          (url.includes('/watch') && url.includes('&list=') && url.includes('shorts'));
+            // }
+            // TikTok and Instagram - all pages
+            return true;
+          }
+        }
+        
+        return false;
+      } catch (error) {
+        console.error('Error checking enabled sites:', error);
+        // Default to not tracking if storage fails
+        return false;
       }
-      
-      // Instagram - all pages (feed, stories, reels)
-      if (url.includes('instagram.com')) {
-        return true;
-      }
-      
-      // YouTube - only Shorts and some watch pages
-      if (url.includes('youtube.com')) {
-        return url.includes('/shorts/') || 
-               (url.includes('/watch') && url.includes('&list=') && url.includes('shorts'));
-      }
-      
-      return false;
     }
 
-    function handleScroll() {
-      if (!shouldTrackThisPage()) return;
+    async function handleScroll() {
+      if (!(await shouldTrackThisPage())) return;
       
       // Don't track scrolls if lesson is active
       if (lessonManager.isActive()) {
@@ -85,12 +102,12 @@ export default defineContentScript({
       });      
     }
 
-    function handleKeyDown(event: KeyboardEvent) {
-      if (!shouldTrackThisPage()) return;
+    async function handleKeyDown(event: KeyboardEvent) {
+      if (!(await shouldTrackThisPage())) return;
       
       // Only track down arrow key
       if (event.key === 'ArrowDown') {
-        handleScroll();
+        await handleScroll();
       }
     }
 
@@ -263,7 +280,9 @@ export default defineContentScript({
     window.addEventListener('wheel', (event) => {
       // Only track downward scrolling
       if (event.deltaY > 0) {
-        handleScroll();
+        handleScroll().catch((error: any) => {
+          console.error('Error handling scroll:', error);
+        });
       }
     }, { passive: true });
 
@@ -271,16 +290,22 @@ export default defineContentScript({
     document.addEventListener('keydown', handleKeyDown);
 
     // Request current timer state from background
-    if (shouldTrackThisPage()) {
-      browser.runtime.sendMessage({
-        type: 'REQUEST_TIMER_STATE'
-      }).catch((error: any) => {
-        console.log('Could not request timer state:', error);
-      });
-    } else {
-      // Start brain battery recharge if this is not a tracked page
+    shouldTrackThisPage().then(shouldTrack => {
+      if (shouldTrack) {
+        browser.runtime.sendMessage({
+          type: 'REQUEST_TIMER_STATE'
+        }).catch((error: any) => {
+          console.log('Could not request timer state:', error);
+        });
+      } else {
+        // Start brain battery recharge if this is not a tracked page
+        startBrainBatteryRecharge();
+      }
+    }).catch((error: any) => {
+      console.error('Error checking if should track page:', error);
+      // Default to starting brain battery recharge if check fails
       startBrainBatteryRecharge();
-    }
+    });
 
     // Cleanup on page unload
     window.addEventListener('beforeunload', () => {

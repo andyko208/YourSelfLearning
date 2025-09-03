@@ -20,13 +20,13 @@ export const DateSelector: React.FC<DateSelectorProps> = ({ selectedDate, onDate
     <div style={{
       display: 'flex',
       gap: '0',
-      margin: '20px 0',
+      margin: '0 0 16px 0',
       backgroundColor: 'white',
       border: '3px solid black',
       borderRadius: '8px',
       overflow: 'hidden',
       boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)',
-      width: '466px'
+      width: '100%'
     }}>
       <button
         onClick={(e) => handleDateChange('today', e)}

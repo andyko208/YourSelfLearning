@@ -6,11 +6,15 @@
   <title>XScroll</title>
   <meta name="manifest.type" content="browser_action" />
   <style>
+    :root {
+      --popup-width: 460px;
+      --popup-height: 440px;
+    }
     body {
       margin: 0;
       padding: 0;
-      width: 480px;
-      height: 450px;
+      width: var(--popup-width);
+      height: var(--popup-height);
       overflow: hidden;
     }
     * {

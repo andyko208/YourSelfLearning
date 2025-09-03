@@ -74,62 +74,6 @@ The extension stores data in browser local storage with the following structure:
   }
 }
 ```
-
-## Test Cases
-
-#### 1. **Basic Scroll Detection Test**
-1. Open TikTok, Instagram, or YouTube Shorts
-2. Open browser console (F12)
-3. Scroll down slowly (wait 3+ seconds between scrolls)
-4. **Expected**: Console shows "Scroll detected and counted" messages
-5. Try rapid scrolling within 2 seconds
-6. **Expected**: Only first scroll is counted due to cooldown
-
-#### 2. **Tab Coordination Test**
-1. Open a tracked site (TikTok/Instagram/YouTube Shorts)
-2. Open browser console and look for "Timer started" message
-3. Open new tab to non-tracked site (e.g., google.com)
-4. **Expected**: Console shows "Timer stopped" message
-5. Switch back to tracked site
-6. **Expected**: Console shows "Timer started" message
-
-#### 3. **Multi-Tab Race Condition Test**
-1. Open multiple tabs to the same tracked platform
-2. Scroll in different tabs rapidly
-3. **Expected**: No duplicate counting, data remains consistent
-
-#### 4. **Data Persistence Test**
-1. Scroll several times on a tracked site
-2. Check data: `browser.storage.local.get('xscroll-data')`
-3. Reload the page
-4. Check data again
-5. **Expected**: Scroll counts and time data persist after reload
-
-#### 5. **Window Focus Test**
-1. Open tracked site and ensure timer is running
-2. Switch to another application (minimize browser)
-3. **Expected**: Timer pauses
-4. Switch back to browser
-5. **Expected**: Timer resumes
-
-### 🎯 Success Criteria Validation
-
-Verify the following work correctly:
-
-- ✅ Scroll count increments with 2-second cooldown
-- ✅ Time tracking across tab switches
-- ✅ Data partitioned into 8-hour periods
-- ✅ Race conditions prevented across multiple tabs
-- ✅ Extension maintains accuracy during rapid interactions
-- ✅ Proper cleanup prevents memory leaks
-
-### 📋 Known Limitations
-
-- YouTube Shorts detection is URL-based and may not catch all variations
-- Timer accuracy depends on browser tab scheduling
-- Storage locks have 5-second timeout for stuck operations
-
-
 ---
 
 # XScroll Browser Extension - Phase 2: Lesson Content Overlay System
@@ -253,79 +197,6 @@ The storage structure now includes lesson tracking:
 - Smooth animations and transitions
 - High z-index ensures overlay appears above all content
 - Accessible button states and visual feedback
-
-## Test Cases
-
-#### 1. **Lesson Trigger Test**
-1. Open TikTok, Instagram, or YouTube Shorts
-2. Scroll down exactly 3 times (wait 3+ seconds between scrolls)
-3. **Expected**: Lesson overlay appears after 3rd scroll
-4. **Expected**: Page becomes unscrollable and audio mutes
-
-#### 2. **Three-State UI Test**
-1. Trigger a lesson (3 scrolls)
-2. Click any answer button
-3. **Expected**: Button highlights green (correct) or red (incorrect)
-4. **Expected**: Confetti animation for correct answers
-5. **Expected**: Explanation text appears with "Learn More" link
-6. **Expected**: Countdown button shows "5" and counts down to "Close"
-7. Wait for countdown to complete
-8. **Expected**: Close button becomes clickable
-9. Click "Close"
-10. **Expected**: Overlay disappears, page functionality restored
-
-#### 3. **Page State Management Test**
-1. Play a video on TikTok/Instagram
-2. Trigger lesson (3 scrolls)
-3. **Expected**: Video mutes automatically
-4. Try scrolling during lesson
-5. **Expected**: Page doesn't scroll
-6. Try arrow keys during lesson
-7. **Expected**: Arrow keys don't work
-8. Complete lesson and close
-9. **Expected**: Video unmutes, scrolling works again
-
-#### 4. **Multi-Tab Independence Test**
-1. Open two tabs with tracked sites (e.g., TikTok and Instagram)
-2. Scroll 3 times in Tab 1 to trigger lesson
-3. Switch to Tab 2
-4. **Expected**: Tab 2 scrolling and tracking still works
-5. Switch back to Tab 1
-6. **Expected**: Lesson still displayed, tracking paused
-7. Complete lesson in Tab 1
-8. **Expected**: Both tabs resume normal tracking
-
-#### 5. **Lesson Count Tracking Test**
-1. Complete a lesson
-2. Check storage: `browser.storage.local.get('xscroll-data')`
-3. **Expected**: `lessonCount` incremented in current time period
-4. **Expected**: `nextLessonAt` updated to current scroll count + 3
-
-#### 6. **Answer Shuffling Test**
-1. Trigger multiple lessons (scroll 6+ times total)
-2. **Expected**: Answer positions are randomized for each lesson
-3. **Expected**: Different questions appear each time
-
-### 🎯 Success Criteria Validation
-
-Verify the following work correctly:
-
-- ✅ Lessons trigger every 3 scrolls
-- ✅ Three-state UI progression works smoothly
-- ✅ Scroll and time tracking pause during lessons
-- ✅ Page state freezes and restores properly
-- ✅ Multi-tab independence maintained
-- ✅ Lesson counts tracked in daily data
-- ✅ Visual feedback and animations work
-- ✅ Responsive design on different screen sizes
-- ✅ Audio muting and keyboard disabling during lessons
-
-### 📋 Known Limitations
-
-- Lesson content is static (loaded from TSV file)
-- YouTube Shorts detection is URL-based
-- Timer accuracy depends on browser tab scheduling
-- Confetti animation is CSS-based (no complex physics)
 
 ---
 
@@ -474,82 +345,6 @@ The brain battery implements a gamified cognitive capacity system:
 // Daily reset: 100% at midnight
 ```
 
-## Test Cases
-
-#### 1. **Initial UI Render Test**
-1. Open extension popup
-2. **Expected**: See three metric slots with prominent metric values highlighted in red
-3. **Expected**: Reset timer displays at top-left corner countdown to midnight in HH:MM:SS format
-4. **Expected**: Brain battery shows 100% with green progress bar at top-right corner (compact design)
-5. **Expected**: Navigation bar shows three icons (Library, Home, Settings)
-6. **Expected**: Both reset timer and brain battery show cursor pointer on hover
-
-#### 2. **Real-time Metric Updates Test**
-1. Browse tracked sites to accumulate scrolls and time
-2. Open popup and observe metrics
-3. Leave popup open while browsing
-4. **Expected**: Metrics update instantly when storage changes
-5. **Expected**: Values update numerically without emojis
-6. **Expected**: Time format switches appropriately
-
-#### 3. **Brain Battery Functionality Test**
-1. Start with fresh extension (100% battery)
-2. Accumulate 10 scrolls (expect -2% from scroll drain)
-3. Wait 5 minutes browsing (expect -5% from time drain)
-4. Complete 3 lessons (expect +1.5% from lesson recharge)
-5. **Expected**: Final battery = 100 - 2 - 5 + 1.5 = 94.5%
-6. Hover over battery to see calculation tooltip
-
-#### 4. **Brain Battery Color States Test**
-1. Use extension until battery drops below 60%
-2. **Expected**: Progress bar changes from green to orange
-3. Continue until battery drops below 20%
-4. **Expected**: Progress bar changes from orange to red
-
-#### 5. **Navigation Placeholder Test**
-1. Click each navigation icon (Library, Home, Settings)
-2. **Expected**: Console logs "Navigation to [page] - Coming soon!"
-3. **Expected**: Hover effects show opacity change to 0.7
-
-#### 6. **ResetTimer Tooltip Test**
-1. Hover over reset timer at top-left corner
-2. **Expected**: Tooltip appears listing Morning (12AM–8AM), Afternoon (8AM–4PM), Night (4PM–12AM)
-3. **Expected**: Only the current time period is bolded; others are normal weight
-4. Test at different times to verify bolding changes accordingly
-
-#### 7. **MetricSlot Tooltip Test**
-1. Hover each metric slot (Scroll, Time, Lesson)
-2. **Expected**: Tooltip shows "Session Breakdown" with Morning + Afternoon + Night values and Total
-3. **Expected**: Time values use HH:MM:SS (e.g., `00:02:03`); Scroll/Lesson show raw counts
-
-#### 8. **Midnight Reset Test**
-1. Check timer countdown accuracy at different times
-2. **Expected**: Timer updates every second
-3. Wait until midnight or change system time
-4. **Expected**: All metrics reset to 0, brain battery resets to 100%
-
-### 🎯 Success Criteria Validation
-
-Verify the following work correctly:
-
-- ✅ Three metric slots display in casino slot machine style with black-and-white design
-- ✅ Numeric-only display without emojis; thresholds reflected by values 
-- ✅ Brain battery calculates correctly with drain/recharge formula
-- ✅ Progress bar color changes at percentage thresholds (60%, 20%)
-- ✅ Reset timer counts down to midnight accurately with live updates
-- ✅ Real-time updates work via storage change listeners (< 1 second delay)
-- ✅ Navigation bar displays placeholder functionality
-- ✅ Layout matches wireframe specifications (reset timer top-left, brain battery top-right, 480px × 550px popup)
-- ✅ Reset timer tooltip shows time periods with bold current session
-- ✅ MetricSlot tooltips show session breakdown with clean time formatting
-- ✅ All components render without errors and maintain performance
-
-### 📋 Known Limitations
-
-- Navigation pages are placeholder implementations (console logs only)
-- Brain battery tooltip positioning optimized for top-right corner but may overlap on very small screens
-- Timer updates every second which may impact battery life in mobile contexts
-
 ---
 
 # XScroll - Phase 4: Date Selection & Historical Metrics Display
@@ -623,56 +418,189 @@ src/
     └── time-periods.ts            # No changes needed
 ```
 
-## Test Cases
+---
 
-#### 1. **Date Selection UI Functionality**
-1. Open extension popup
-2. **Expected**: DateSelector shows "Today" as active by default
-3. Click "Yesterday" button
-4. **Expected**: Selection switches with smooth animation
-5. **Expected**: Metrics update to show yesterday's data
+# XScroll - Phase 5: Settings Page Implementation
 
-#### 2. **Today Metrics with Real-time Updates**
-1. Select "Today" and browse tracked sites
-2. **Expected**: Metrics update in real-time as you browse
-3. **Expected**: Brain battery decreases with usage
-4. **Expected**: All tooltips show "Today's Sessions"
+## Overview
 
-#### 3. **Yesterday Metrics (Static Display)**
-1. Select "Yesterday" 
-2. Continue browsing while popup is open
-3. **Expected**: Yesterday metrics remain static
-4. **Expected**: Brain battery continues updating (today only); yesterday view remains static
-5. **Expected**: Reset timer continues countdown
+Phase 5 implements a comprehensive Settings page that allows users to configure lesson frequency and platform selection. The Settings page seamlessly integrates with the existing navigation system, providing real-time configuration options while maintaining the consistent black-and-white casino aesthetic. This implementation introduces proper page routing between Home and Settings pages while preserving all existing functionality from previous phases.
 
-#### 4. **No Yesterday Data Handling**
-1. Clear extension data or use fresh install
-2. Select "Yesterday"
-3. **Expected**: All metrics show "0" values; tooltips show zeroed session breakdown
+## Phase 5 Implementation Summary
 
-#### 5. **Brain Battery State with Date Selection**
-1. Drain battery to 0% on "Today"
-2. **Expected**: "YOUR BRAIN IS FRIED" message appears
-3. Switch to "Yesterday"
-4. **Expected**: Normal metric slots display (no fried message)
+### ✅ Completed Features
 
-### 🎯 Success Criteria Validation
+1. **Page Routing Infrastructure**
+   - Modified App.tsx to handle page navigation state management
+   - Implemented conditional rendering between HomePage, SettingsPage, and Library placeholder
+   - Created smooth transitions between pages with proper state preservation
+   - Brain battery remains always visible and updates in real-time across all pages
 
-Verify the following work correctly:
+2. **HomePage Component Extraction**
+   - Extracted existing main UI logic from App.tsx into dedicated HomePage component
+   - Maintained all existing functionality including DateSelector, MetricSlots, BrainBattery, and ResetTimer
+   - Preserved real-time storage listeners and "BRAIN FRIED" state logic
+   - Proper prop passing for brain battery percentage from App component
 
-- ✅ Date selection toggle works smoothly with clear visual feedback
-- ✅ "Today" shows live-updating current metrics
-- ✅ "Yesterday" shows static historical metrics
-- ✅ Graceful handling when yesterday data doesn't exist
-- ✅ Brain battery and reset timer remain "today" only features
-- ✅ All existing Phase 3 functionality preserved
-- ✅ Single state variable manages date selection efficiently
-- ✅ Tooltips provide context-aware date information
-- ✅ Consistent metric value display for both dates
-- ✅ Professional UI matching existing design language
+3. **Enhanced Navigation Bar System**
+   - Updated NavigationBar to accept currentPage and onNavigate props
+   - Navigation correctly highlights active page with visual feedback
+   - Settings and Home navigation fully functional, Library remains placeholder
+   - Proper event handling and state management integration
 
-### 📋 Known Limitations
+4. **Settings Page Layout & Design**
+   - Created SettingsPage with professional header and two main sections
+   - Implemented loading states and error handling for storage operations
+   - Container sized appropriately (480px × 490px accounting for navigation bar)
+   - Consistent typography and spacing matching existing design system
 
-- Historical data limited to yesterday only (no weekly/monthly views)
-- Date selection resets to "Today" on popup close/reopen
-- Yesterday data updates only at midnight rollover
+5. **Lesson Frequency Selector Component**
+   - Three pill-shaped option buttons: Often (1-3), Sometimes (4-6), Barely (7-9)
+   - Casino aesthetic with black borders, white backgrounds, and active state highlighting
+   - Smooth hover effects and visual feedback on selection changes
+   - Real-time storage updates with immediate application to lesson trigger system
+
+6. **Platform Selector with Horizontal Scrolling**
+   - Multi-selection interface for Instagram, TikTok, and YouTube platforms
+   - Horizontal scrolling navigation with left/right arrow controls
+   - Platform cards with SVG icons, selection indicators, and proper hover states
+   - Arrow states properly disabled at scroll boundaries for intuitive navigation
+
+7. **Extended Storage Utilities**
+   - Enhanced updateSettings method to recalculate nextLessonAt when frequency changes
+   - Proper atomic storage operations with existing lock mechanism
+   - Real-time synchronization ensures settings apply immediately across all extension contexts
+   - Maintains backward compatibility with existing storage structure
+
+8. **Platform Icon System**
+   - Created inline SVG components for Instagram, TikTok, and YouTube
+   - Black outline style icons using currentColor for consistent theming
+   - 24×24 viewBox dimensions optimized for display in platform cards
+   - Scalable vector graphics ensure crisp rendering at all sizes
+
+### 🏗️ Updated Project Structure
+
+```
+src/
+├── entrypoints/
+│   ├── background.ts              # Fixed: Uses storage-based URL filtering (not hardcoded)
+│   ├── content.ts                 # Modified: Enhanced error handling
+│   ├── content/
+│   │   ├── storage-utils.ts       # Extended: updateSettings method with nextLessonAt recalc
+│   │   ├── lesson-manager.ts      # No changes needed
+│   │   └── lesson-overlay.ts      # Modified: Enhanced styling and animations
+│   └── popup/
+│       ├── App.tsx                # Simplified: Uses Layout component pattern
+│       ├── pages/                 # NEW: Page components directory
+│       │   ├── HomePage.tsx       # NEW: Main dashboard with date selection
+│       │   └── SettingsPage.tsx   # NEW: Settings interface with frequency/platform config
+│       ├── components/
+│       │   ├── Layout.tsx         # NEW: Shared layout with brain battery & navigation
+│       │   ├── NavigationBar.tsx  # Modified: Added page routing functionality
+│       │   ├── BrainBattery.tsx   # Modified: Tooltip improvements
+│       │   ├── ResetTimer.tsx     # Modified: Enhanced styling
+│       │   ├── home/              # NEW: Home page specific components
+│       │   │   ├── DateSelector.tsx    # Moved: From components/ to home/
+│       │   │   └── MetricSlot.tsx      # Moved: From components/ to home/
+│       │   └── settings/          # NEW: Settings-specific components
+│       │       ├── LessonFrequency.tsx  # NEW: Three-option frequency selector
+│       │       └── PlatformSelector.tsx # NEW: Multi-platform selector with icons
+│       └── utils/
+│           └── formatters.ts      # No changes needed
+├── types/
+│   └── storage.ts                 # No changes needed
+├── utils/
+│   ├── browser-api.ts             # No changes needed  
+│   ├── lesson-parser.ts           # No changes needed
+│   └── time-periods.ts            # No changes needed
+└── assets/                        # NEW: Platform icons directory
+    └── platform-icons/
+        ├── instagram.svg          # NEW: Instagram SVG icon
+        ├── tiktok.svg             # NEW: TikTok SVG icon  
+        └── youtube-shorts.svg     # NEW: YouTube SVG icon
+```
+
+---
+
+# XScroll - Phase 5.1: Architecture Improvements & UI Polish
+
+## Overview
+
+Phase 5.1 introduces significant architecture improvements and UI polish to the existing Phase 5 implementation. This phase focuses on better code organization, improved component reusability, enhanced responsive design, and addressing critical bugs discovered in the time tracking system.
+
+## Phase 5.1 Implementation Summary
+
+### ✅ Completed Features
+
+1. **Layout Component Architecture**
+   - Created centralized `Layout.tsx` component managing shared data and UI structure
+   - Consolidated brain battery and reset timer positioning across all pages
+   - Simplified App.tsx to focus solely on page routing logic
+   - Improved state management with single source of truth for shared data
+
+2. **Component Organization Restructure**
+   - Moved `DateSelector` and `MetricSlot` to `components/home/` directory
+   - Maintained settings components in dedicated `components/settings/` directory
+   - Created logical separation between page-specific and shared components
+   - Enhanced maintainability through better file organization
+
+3. **Enhanced HomePage UI & Responsiveness**
+   - Replaced flex layout with CSS grid for metric slots (3-column responsive layout)
+   - Improved spacing consistency with standardized gap values (12px throughout)
+   - Enhanced responsive design with proper width constraints and flexible containers
+   - Better vertical layout management with justify-content: flex-start
+
+4. **Settings Page UI Polish**
+   - Removed unnecessary headers for cleaner, focused interface
+   - Centered content containers with consistent max-width constraints
+   - Improved visual hierarchy with refined typography and spacing
+   - Enhanced section headings with better color contrast and letter-spacing
+
+5. **Critical Time Tracking Bug Fix**
+   - **Issue**: Time tracking only worked on TikTok/Instagram/YouTube Shorts, not other YouTube pages
+   - **Root Cause**: Background script used hardcoded site list instead of storage settings
+   - **Solution**: Updated `background.ts` to use storage-based `shouldTrackUrl()` logic
+   - **Result**: ✅ Time tracking now works on ALL enabled sites including all YouTube pages
+
+6. **UI Polish & Visual Improvements**  
+   - Enhanced MetricSlot styling with improved padding and proportions
+   - Refined DateSelector with better button states and hover effects
+   - Improved BrainBattery tooltip positioning and content formatting
+   - Enhanced ResetTimer styling and tooltip information display
+
+7. **Performance & State Management Optimizations**
+   - Centralized storage listeners in Layout component for better efficiency
+   - Reduced unnecessary re-renders through improved state management
+   - Better memory management with proper cleanup in useEffect hooks
+   - Optimized data fetching patterns to minimize storage API calls
+
+### 🏗️ Architecture Benefits
+
+**Before (Phase 5)**: HomePage managed its own brain battery state, duplicated storage listeners across components, props drilling for shared data.
+
+**After (Phase 5.1)**: 
+- Layout component handles all shared data (brain battery, metrics for tooltips)
+- Single storage listener managing all real-time updates
+- Pages focus on their specific functionality without duplicating shared logic
+- Better separation of concerns and improved maintainability
+
+### 🎨 Visual Design Improvements
+
+1. **Grid-Based Metric Layout**: More balanced and responsive metric slot positioning
+2. **Consistent Spacing**: Standardized 12px gaps throughout all interfaces  
+3. **Better Typography**: Enhanced headings, labels, and content hierarchy
+4. **Improved Hover States**: More intuitive interactive feedback across all components
+5. **Responsive Containers**: Better adaptation to different popup sizes and screen constraints
+
+## Current Feature Status
+
+### ✅ Fully Implemented & Tested
+- Page routing between Home, Settings, Library (placeholder)
+- Date selection with Today/Yesterday historical comparison
+- Brain battery system with drain/recharge mechanics
+- Lesson frequency configuration (Often/Sometimes/Barely)  
+- Platform selection with multi-select interface
+- Real-time metric tracking and display
+- Settings persistence across browser sessions
+- Lesson overlay system with 3-state progression
+- Multi-tab independent lesson management
