@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Layout } from './components/Layout';
 import { HomePage } from './pages/HomePage';
 import { SettingsPage } from './pages/SettingsPage';
+import { LibraryPage } from './pages/LibraryPage';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<'home' | 'settings' | 'library'>('home');
@@ -16,18 +17,7 @@ export default function App() {
       {/* Conditionally render pages */}
       {currentPage === 'home' && <HomePage />}
       {currentPage === 'settings' && <SettingsPage />}
-      {currentPage === 'library' && (
-        <div style={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '18px',
-          color: '#666'
-        }}>
-          Library - Coming Soon!
-        </div>
-      )}
+      {currentPage === 'library' && <LibraryPage />}
     </Layout>
   );
 }

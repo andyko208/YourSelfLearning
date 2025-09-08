@@ -81,13 +81,8 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ currentPage, onNav
     e?: React.MouseEvent<HTMLButtonElement>
   ) => {
     // Blur to avoid persistent default focus ring after mouse clicks
-    e?.currentTarget?.blur();
-    
-    if (id === 'library') {
-      console.log(`Navigation to ${id} - Coming soon!`);
-    } else {
-      onNavigate(id as 'home' | 'settings' | 'library');
-    }
+    e?.currentTarget?.blur();    
+    onNavigate(id as 'home' | 'settings' | 'library');
   };
   
   return (

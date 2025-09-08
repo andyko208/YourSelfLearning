@@ -6,6 +6,7 @@ import { browser } from '../../utils/browser-api';
 export class LessonManager {
   private currentOverlay: LessonOverlay | null = null;
   private isLessonActive = false;
+  private pendingLessonCompletion = false;
   private mediaObserver: MutationObserver | null = null;
   private mediaInterval: number | null = null;
   private pageEventHandlers: {
@@ -26,9 +27,8 @@ export class LessonManager {
    */
   private async initializeLessonParser(): Promise<void> {
     try {
-      if (!lessonParser.isLoaded()) {
-        await lessonParser.loadLessons();
-      }
+      const sel = await StorageUtils.getSelectedLessons();
+      await lessonParser.loadLessons(sel);
     } catch (error) {
       console.error('Failed to initialize lesson parser:', error);
     }
@@ -38,8 +38,21 @@ export class LessonManager {
    * Set up initial lesson check (removed storage listener to prevent race conditions)
    */
   private setupStorageListener(): void {
-    // Initial check only - no storage listener to prevent double triggers
+    // Initial check
     this.checkShouldTriggerLesson();
+
+    // Reload lessons when theme/topics change
+    try {
+      browser.storage.onChanged.addListener(async (changes: Record<string, any>, area: string) => {
+        if (area !== 'local') return;
+        const dataChange = (changes as any)['xscroll-data'];
+        if (dataChange?.newValue?.settings) {
+          const s = dataChange.newValue.settings;
+          const topics = s.selectedTopicsByTheme?.[s.selectedTheme] ?? s.selectedTopics ?? [];
+          await lessonParser.loadLessons({ theme: s.selectedTheme, topics });
+        }
+      });
+    } catch {}
   }
 
   /**
@@ -117,11 +130,8 @@ export class LessonManager {
    * Handle lesson completion (increment count and update storage)
    */
   private async handleLessonComplete(): Promise<void> {
-    try {
-      await StorageUtils.incrementLessonCount();
-    } catch (error) {
-      console.error('Error completing lesson:', error);
-    }
+    // Mark completion and let close handler persist in one write
+    this.pendingLessonCompletion = true;
   }
 
   /**
@@ -136,8 +146,13 @@ export class LessonManager {
       this.isLessonActive = false;
       this.currentOverlay = null;
 
-      // Update storage to mark lesson as inactive
-      await StorageUtils.setLessonActive(false);
+      // Persist storage updates in one locked write if completed
+      if (this.pendingLessonCompletion) {
+        await StorageUtils.completeLessonAndScheduleNext();
+        this.pendingLessonCompletion = false;
+      } else {
+        await StorageUtils.setLessonActive(false);
+      }
 
       // Send message to background script
       try {

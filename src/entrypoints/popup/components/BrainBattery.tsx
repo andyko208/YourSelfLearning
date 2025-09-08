@@ -60,7 +60,7 @@ export const BrainBattery: React.FC<BrainBatteryProps> = ({
         fontWeight: 'bold',
         color: 'black'
       }}>
-        {percentage}%
+        {clamped}%
       </div> */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
         <div style={{
@@ -77,6 +77,7 @@ export const BrainBattery: React.FC<BrainBatteryProps> = ({
           position: 'relative'
         }}>
           <div style={{
+            // Ensure width never goes negative or exceeds the bar
             width: `${percentage}%`,
             height: '100%',
             backgroundColor: getBarColor(),

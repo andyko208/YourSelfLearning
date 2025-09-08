@@ -7,7 +7,7 @@ export default defineConfig({
   manifest: {
     permissions: ['storage', 'activeTab', 'tabs'],
     web_accessible_resources: [{
-      resources: ['lessons/how-to-control.tsv'],
+      resources: ['lessons/*.tsv'],
       matches: ['<all_urls>']
     }]
   }

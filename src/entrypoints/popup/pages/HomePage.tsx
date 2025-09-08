@@ -97,7 +97,7 @@ export const HomePage: React.FC = () => {
             backgroundColor: '#2a2a2a',
             border: '3px solid black',
             borderRadius: '16px',
-            padding: '24px',
+            padding: '20px',
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',

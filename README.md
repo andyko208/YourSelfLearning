@@ -1,3 +1,102 @@
+# XScroll - Phase 6: Library Page - Customizable Lesson Content System
+
+## Overview
+Phase 6 implements the Library page with a two-tier selection system: themes (single-select) and topics (multi-select). Selections persist and update lesson content in real time across tabs, aligning UI patterns with Settings for a consistent experience.
+
+## Phase 6 Implementation Summary
+
+### ✅ Completed Features
+
+1. **Extended Storage System**
+   - Added `selectedTheme` and `selectedTopics` to settings
+   - Defaults: theme `how-to`, topics `['control']`
+   - Methods: `updateSelectedTheme`, `updateSelectedTopics`, `getSelectedLessons()`
+   - Files: `src/types/storage.ts`, `src/entrypoints/content/storage-utils.ts`
+
+2. **Lesson Parser Enhancements**
+   - Added `THEME_TOPIC_MAP`, `TOPIC_DESCRIPTIONS`
+   - `loadLessons({ theme, topics })` for selective loading and caching
+   - Fallback to default TSV if none loaded
+   - File: `src/utils/lesson-parser.ts`
+
+3. **Library UI Components**
+   - `ThemeSelector`: pill buttons mirroring `LessonFrequency` sizing
+   - `TopicSelector`: horizontal scrollable cards mirroring `PlatformSelector`
+   - Files: `src/entrypoints/popup/components/library/ThemeSelector.tsx`, `TopicSelector.tsx`
+
+4. **Library Page Integration**
+   - Real-time sync with storage changes using `browser.storage.onChanged`
+   - Smooth navigation via `App.tsx` route
+   - File: `src/entrypoints/popup/pages/LibraryPage.tsx`, `src/entrypoints/popup/App.tsx`
+
+5. **Content System Connection**
+   - `lesson-manager` loads lessons per current selection and reacts to updates
+   - File: `src/entrypoints/content/lesson-manager.ts`
+
+6. **Lesson Files**
+   - Added TSVs for all topics across themes
+   - Directory: `public/lessons/`
+
+## Project Structure
+
+```
+src/
+├── entrypoints/
+│   ├── content/
+│   │   ├── lesson-manager.ts        # Loads per selection; listens for changes
+│   │   └── storage-utils.ts         # Selection fields + helpers
+│   └── popup/
+│       ├── App.tsx                  # Library route
+│       ├── components/
+│       │   └── library/
+│       │       ├── ThemeSelector.tsx
+│       │       └── TopicSelector.tsx
+│       └── pages/
+│           └── LibraryPage.tsx      # Real-time synced UI
+├── types/
+│   └── storage.ts                   # selectedTheme, selectedTopics
+└── utils/
+    └── lesson-parser.ts             # Selective loading, maps, caching
+public/
+└── lessons/
+    ├── how-to-control.tsv
+    ├── how-to-learn.tsv
+    ├── how-to-speak.tsv
+    ├── what-is-money.tsv
+    ├── what-is-relationship.tsv
+    ├── what-is-life.tsv
+    ├── why-survive.tsv
+    ├── why-love.tsv
+    └── why-hate.tsv
+```
+
+## Rigorous Test Cases
+
+- **Real-time Sync**
+  1. Open two tabs with Library and a tracked site
+  2. Toggle topics in Library
+  3. Trigger a lesson on the site
+  4. Expected: lesson content reflects updated topics
+
+- **UI Consistency**
+  - Verify `ThemeSelector` matches `LessonFrequency` size/spacing
+  - Verify `TopicSelector` matches `PlatformSelector` scroll behavior
+
+- **Edge Cases**
+  - No topics selected: ensure fallback load still provides lessons
+  - Missing TSV: selective loader skips gracefully
+
+## 🎯 Success Criteria Validation
+
+- ✅ Single-select theme; multi-select topics
+- ✅ Selections persist and sync across tabs
+- ✅ Lesson overlay uses only selected topics
+- ✅ UI consistent with Settings components
+
+## 📋 Known Limitations
+
+- Limited sample TSV rows per topic (expandable later)
+
 # XScroll - Phase 1: Scroll Detection & Time Tracking
 
 ## Overview

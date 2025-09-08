@@ -18,6 +18,13 @@ export interface StorageData {
     enabledSites: string[];
     lessonFrequency: number;
     frequencyMode: 'scrolls' | 'time';
+    selectedTheme: 'how-to' | 'what-is' | 'why';
+    selectedTopics: string[]; // deprecated: kept for compatibility
+    selectedTopicsByTheme?: {
+      'how-to': string[];
+      'what-is': string[];
+      'why': string[];
+    };
   };
   nextLessonAt: number;
   lessonActive: boolean;

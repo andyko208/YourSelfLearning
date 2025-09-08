@@ -7,19 +7,24 @@ import {
   createEmptyDailyData 
 } from '../../utils/time-periods';
 import { browser } from '../../utils/browser-api';
+import { THEME_TOPIC_MAP } from '../../utils/lesson-parser';
 
 const LOCK_TIMEOUT = 5000; // 5 seconds
 const STORAGE_KEY = 'xscroll-data';
-const LOCK_KEY = 'xscroll-lock';
+// Use separate lock namespaces to reduce contention between metrics and settings
+const LOCK_KEY_METRICS = 'xscroll-lock-metrics';
+const LOCK_KEY_SETTINGS = 'xscroll-lock-settings';
+
+type LockNamespace = 'metrics' | 'settings';
 
 export class StorageUtils {
-  private static async acquireLock(): Promise<string | null> {
+  private static async acquireLock(lockKey: string): Promise<string | null> {
     const lockId = `${Date.now()}-${Math.random()}`;
     
     try {
       // Try to acquire lock
-      const result = await browser.storage.local.get(LOCK_KEY);
-      const existingLock = result[LOCK_KEY] as StorageLock | undefined;
+      const result = await browser.storage.local.get(lockKey);
+      const existingLock = result[lockKey] as StorageLock | undefined;
       
       // Check if lock is available or expired
       if (!existingLock || 
@@ -32,11 +37,11 @@ export class StorageUtils {
           lockId
         };
         
-        await browser.storage.local.set({ [LOCK_KEY]: newLock });
+        await browser.storage.local.set({ [lockKey]: newLock });
         
         // Verify we actually got the lock (race condition check)
-        const verifyResult = await browser.storage.local.get(LOCK_KEY);
-        const verifyLock = verifyResult[LOCK_KEY] as StorageLock;
+        const verifyResult = await browser.storage.local.get(lockKey);
+        const verifyLock = verifyResult[lockKey] as StorageLock;
         
         if (verifyLock.lockId === lockId) {
           return lockId;
@@ -50,15 +55,15 @@ export class StorageUtils {
     }
   }
   
-  private static async releaseLock(lockId: string): Promise<void> {
+  private static async releaseLock(lockKey: string, lockId: string): Promise<void> {
     try {
-      const result = await browser.storage.local.get(LOCK_KEY);
-      const existingLock = result[LOCK_KEY] as StorageLock;
+      const result = await browser.storage.local.get(lockKey);
+      const existingLock = result[lockKey] as StorageLock;
       
       // Only release if we own the lock
       if (existingLock && existingLock.lockId === lockId) {
         await browser.storage.local.set({
-          [LOCK_KEY]: {
+          [lockKey]: {
             locked: false,
             lockTime: 0,
             lockId: ''
@@ -70,30 +75,40 @@ export class StorageUtils {
     }
   }
   
-  private static async withLock<T>(operation: () => Promise<T>): Promise<T | null> {
+  private static async withLock<T>(
+    operation: () => Promise<T>,
+    options?: { lock?: LockNamespace; opName?: string; maxAttempts?: number }
+  ): Promise<T | null> {
+    const lockNamespace: LockNamespace = options?.lock ?? 'metrics';
+    const opName = options?.opName ?? 'operation';
+    const maxAttempts = options?.maxAttempts ?? 8;
+    const lockKey = lockNamespace === 'metrics' ? LOCK_KEY_METRICS : LOCK_KEY_SETTINGS;
+
     let attempts = 0;
-    const maxAttempts = 3;
+    let backoff = 50; // start small and back off
     
     while (attempts < maxAttempts) {
-      const lockId = await this.acquireLock();
+      const lockId = await this.acquireLock(lockKey);
       
       if (lockId) {
         try {
           const result = await operation();
-          await this.releaseLock(lockId);
+          await this.releaseLock(lockKey, lockId);
           return result;
         } catch (error) {
-          await this.releaseLock(lockId);
+          await this.releaseLock(lockKey, lockId);
           throw error;
         }
       }
       
       attempts++;
-      // Wait before retrying
-      await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200));
+      // Exponential backoff with jitter
+      const delay = backoff + Math.floor(Math.random() * 50);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      backoff = Math.min(backoff * 2, 800);
     }
     
-    console.warn('Failed to acquire lock after maximum attempts');
+    console.warn(`Failed to acquire lock after maximum attempts: ${opName} [${lockNamespace}]`);
     return null;
   }
   
@@ -111,6 +126,33 @@ export class StorageUtils {
       // Check if we need to roll over to a new day
       if (isNewDay(data.today.date)) {
         data = await this.performDailyRollover(data);
+      }
+      
+      // Migration: ensure new Library fields exist in settings
+      // Add defaults if missing from older stored data
+      if ((data as any).settings) {
+        let migrated = false;
+        if ((data as any).settings.selectedTheme === undefined) {
+          (data as any).settings.selectedTheme = 'how-to';
+          migrated = true;
+        }
+        if ((data as any).settings.selectedTopics === undefined) {
+          (data as any).settings.selectedTopics = ['control'];
+          migrated = true;
+        }
+        if ((data as any).settings.selectedTopicsByTheme === undefined) {
+          (data as any).settings.selectedTopicsByTheme = {
+            'how-to': (data as any).settings.selectedTopics ?? ['control'],
+            'what-is': [],
+            'why': []
+          };
+          migrated = true;
+        }
+        if (migrated) {
+          await browser.storage.local.set({ [STORAGE_KEY]: data });
+          // Run cleanup without acquiring another lock to avoid reentrancy
+          await this.cleanupCorruptedTopicData(true);
+        }
       }
       
       return data;
@@ -138,7 +180,14 @@ export class StorageUtils {
           'amazon.com'
         ],
         lessonFrequency: 3,
-        frequencyMode: 'scrolls'
+        frequencyMode: 'scrolls',
+        selectedTheme: 'how-to',
+        selectedTopics: ['control'],
+        selectedTopicsByTheme: {
+          'how-to': ['control'],
+          'what-is': [],
+          'why': []
+        }
       },
       nextLessonAt: this.getRandomFrequency(3),
       lessonActive: false,
@@ -184,7 +233,7 @@ export class StorageUtils {
       // }
       
       await browser.storage.local.set({ [STORAGE_KEY]: data });
-    });
+    }, { lock: 'metrics', opName: 'incrementBrainBattery' });
   }
 
   static async incrementScrollCount(): Promise<void> {
@@ -207,7 +256,7 @@ export class StorageUtils {
       // console.log(`🔋 Brain battery drained by scroll: ${oldBattery.toFixed(2)}% → ${data.brainBattery.toFixed(2)}% (-0.2%)`);
       
       await browser.storage.local.set({ [STORAGE_KEY]: data });
-    });
+    }, { lock: 'metrics', opName: 'incrementScrollCount' });
   }
   
   static async incrementTimeWasted(seconds: number): Promise<void> {
@@ -234,41 +283,39 @@ export class StorageUtils {
       // }
       
       await browser.storage.local.set({ [STORAGE_KEY]: data });
-    });
+    }, { lock: 'metrics', opName: 'incrementTimeWasted' });
   }
   
-  static async incrementLessonCount(): Promise<void> {
-    // NOTE: No battery check here - completing lessons RECHARGES battery
-    // This allows users to recover from 0% battery by completing lessons
+  static async completeLessonAndScheduleNext(): Promise<void> {
+    // Single locked write to update lesson count, schedule next, and clear active flag
     await this.withLock(async () => {
       const data = await this.getStorageData();
       const period = getCurrentTimePeriod();
-      
       data.today[period].lessonCount += 1;
-      
-      // Recharge brain battery by 0.5% per lesson completed
-      const oldBattery = data.brainBattery;
       data.brainBattery = Math.min(100, data.brainBattery + 0.5);
-      
-      // console.log(`🔋 Brain battery recharged by lesson: ${oldBattery.toFixed(2)}% → ${data.brainBattery.toFixed(2)}% (+1.0%)`);
-      
-      // Calculate total scroll count and set next lesson threshold
-      const totalScrolls = data.today.morning.scrollCount + 
-                          data.today.afternoon.scrollCount + 
+      const totalScrolls = data.today.morning.scrollCount +
+                          data.today.afternoon.scrollCount +
                           data.today.night.scrollCount;
-      
       data.nextLessonAt = totalScrolls + this.getRandomFrequency(data.settings.lessonFrequency);
       data.lessonActive = false;
-      
       await browser.storage.local.set({ [STORAGE_KEY]: data });
-    });
+    }, { lock: 'metrics', opName: 'completeLessonAndScheduleNext' });
   }
   
   static async updateSettings(newSettings: Partial<StorageData['settings']>): Promise<void> {
     await this.withLock(async () => {
       const data = await this.getStorageData();
       
-      data.settings = { ...data.settings, ...newSettings };
+      data.settings = { ...data.settings, ...newSettings } as any;
+
+      // If theme changes, do not globally clear topics; switch current selectedTopics to that theme's saved set
+      if (newSettings.selectedTheme && newSettings.selectedTheme !== data.settings.selectedTheme) {
+        const newTheme = newSettings.selectedTheme as 'how-to' | 'what-is' | 'why';
+        const byTheme = (data.settings as any).selectedTopicsByTheme;
+        const topicsForNewTheme: string[] = byTheme?.[newTheme] ?? [];
+        data.settings.selectedTopics = topicsForNewTheme;
+        data.settings.selectedTheme = newTheme;
+      }
       
       // Update nextLessonAt if frequency changed
       if (newSettings.lessonFrequency !== undefined) {
@@ -279,7 +326,139 @@ export class StorageUtils {
       }
       
       await browser.storage.local.set({ [STORAGE_KEY]: data });
+    }, { lock: 'settings', opName: 'updateSettings' });
+  }
+
+  /**
+   * Library selection helpers
+   */
+  static async updateSelectedTheme(theme: 'how-to' | 'what-is' | 'why'): Promise<void> {
+    // Do not clear saved topics; switch current topics to saved-per-theme
+    await this.updateSettings({ selectedTheme: theme });
+  }
+
+  static async updateSelectedTopics(topics: string[]): Promise<void> {
+    await this.withLock(async () => {
+      const data = await this.getStorageData();
+      const theme = data.settings.selectedTheme as 'how-to' | 'what-is' | 'why';
+      
+      // CRITICAL FIX: Validate topics belong to current theme
+      const validTopics = topics.filter(topic => {
+        const belongsToTheme = THEME_TOPIC_MAP[theme]?.includes(topic);
+        if (!belongsToTheme) {
+          console.warn(`❌ Topic "${topic}" does not belong to theme "${theme}". Removing from selection.`);
+        }
+        return belongsToTheme;
+      });
+      
+      // Only log when topics are filtered out
+      const filteredOut = topics.filter(t => !validTopics.includes(t));
+      if (filteredOut.length > 0) {
+        console.log('🔧 Filtered invalid topics:', { theme, filteredOut });
+      }
+      
+      // Initialize theme map if needed
+      (data.settings as any).selectedTopicsByTheme = (data.settings as any).selectedTopicsByTheme || {
+        'how-to': [], 'what-is': [], 'why': []
+      };
+      
+      // Store only valid topics for current theme
+      (data.settings as any).selectedTopicsByTheme[theme] = validTopics;
+      
+      // Keep legacy field in sync for UI consumers
+      data.settings.selectedTopics = validTopics;
+      
+      await browser.storage.local.set({ [STORAGE_KEY]: data });
+    }, { lock: 'settings', opName: 'updateSelectedTopics' });
+  }
+
+  static async getSelectedLessons(): Promise<{ theme: 'how-to' | 'what-is' | 'why'; topics: string[] }> {
+    const settings = await this.getSettings();
+    const theme = settings.selectedTheme;
+    const byTheme = (settings as any).selectedTopicsByTheme;
+    const topics = (byTheme?.[theme] ?? settings.selectedTopics) || [];
+    return { theme, topics };
+  }
+
+  /**
+   * Clean up corrupted topic-theme assignments
+   */
+  static async cleanupCorruptedTopicData(noLock?: boolean): Promise<void> {
+    const work = async () => {
+      const data = await this.getStorageData();
+      const byTheme = (data.settings as any).selectedTopicsByTheme;
+      
+      if (!byTheme) return;
+      
+      let needsCleanup = false;
+      const cleanedByTheme: Record<string, string[]> = {
+        'how-to': [],
+        'what-is': [],
+        'why': []
+      };
+      
+      // Check each theme for corrupted data
+      Object.entries(byTheme).forEach(([theme, topics]: [string, any]) => {
+        if (!Array.isArray(topics)) return;
+        
+        topics.forEach((topic: string) => {
+          const belongsToTheme = THEME_TOPIC_MAP[theme as 'how-to' | 'what-is' | 'why']?.includes(topic);
+          
+          if (belongsToTheme) {
+            cleanedByTheme[theme].push(topic);
+          } else {
+            needsCleanup = true;
+            console.warn(`🧹 Cleaning up: "${topic}" incorrectly stored in "${theme}" theme`);
+            
+            // Try to find correct theme for this topic
+            const correctTheme = Object.entries(THEME_TOPIC_MAP).find(([, topicList]) => 
+              topicList.includes(topic)
+            )?.[0];
+            
+            if (correctTheme) {
+              console.log(`✅ Moving "${topic}" from "${theme}" to correct theme "${correctTheme}"`);
+              cleanedByTheme[correctTheme].push(topic);
+            } else {
+              console.warn(`❌ Topic "${topic}" not found in any theme. Removing.`);
+            }
+          }
+        });
+      });
+      
+      if (needsCleanup) {
+        console.log('🧹 Data cleanup applied - corrupted topics moved to correct themes');
+        (data.settings as any).selectedTopicsByTheme = cleanedByTheme;
+        await browser.storage.local.set({ [STORAGE_KEY]: data });
+      }
+    };
+    if (noLock) {
+      await work();
+    } else {
+      await this.withLock(work, { lock: 'settings', opName: 'cleanupCorruptedTopicData' });
+    }
+  }
+
+  /**
+   * Get ALL selected topics across ALL themes (for global deselection logic)
+   */
+  static async getAllSelectedTopics(): Promise<string[]> {
+    const settings = await this.getSettings();
+    const byTheme = (settings as any).selectedTopicsByTheme;
+    
+    if (!byTheme) {
+      return settings.selectedTopics || [];
+    }
+    
+    const allTopics: string[] = [];
+    Object.values(byTheme).forEach((topics: any) => {
+      if (Array.isArray(topics)) {
+        allTopics.push(...topics);
+      }
     });
+    
+    // Removed verbose logging for performance
+    
+    return allTopics;
   }
   
   static async getTodayData(): Promise<DailyData> {
@@ -302,7 +481,7 @@ export class StorageUtils {
       const data = await this.getStorageData();
       data.lessonActive = active;
       await browser.storage.local.set({ [STORAGE_KEY]: data });
-    });
+    }, { lock: 'metrics', opName: 'setLessonActive' });
   }
 
   static async isLessonActive(): Promise<boolean> {

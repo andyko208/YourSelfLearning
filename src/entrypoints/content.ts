@@ -25,8 +25,8 @@ export default defineContentScript({
     let lastBatteryUpdate = 0;
     
     const SCROLL_COOLDOWN = 2000; // 2 seconds
-    const TIME_UPDATE_INTERVAL = 1000; // 1 second
-    const BATTERY_RECHARGE_INTERVAL = 1000; // 1 second
+    const TIME_UPDATE_INTERVAL = 2000; // 2 seconds (batch writes to reduce lock pressure)
+    const BATTERY_RECHARGE_INTERVAL = 2000; // 2 seconds (batch writes)
 
     // Initialize lesson manager
     const lessonManager = new LessonManager();
@@ -133,7 +133,7 @@ export default defineContentScript({
         const now = Date.now();
         const secondsElapsed = Math.floor((now - lastTimeUpdate) / 1000);
         
-        if (secondsElapsed >= 1) {
+        if (secondsElapsed >= 2) {
           try {
             await StorageUtils.incrementTimeWasted(secondsElapsed);
             lastTimeUpdate = now;
@@ -219,7 +219,7 @@ export default defineContentScript({
         const now = Date.now();
         const secondsElapsed = Math.floor((now - lastBatteryUpdate) / 1000);
         
-        if (secondsElapsed >= 1) {
+        if (secondsElapsed >= 2) {
           try {
             const data = await StorageUtils.getStorageData();
             if (data.brainBattery < 100) {
