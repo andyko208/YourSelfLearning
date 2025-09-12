@@ -104,7 +104,7 @@ export class LessonManager {
           type: 'LESSON_STARTED'
         });
       } catch (msgError) {
-        console.log('Could not send lesson started message:', msgError);
+        // ignore
       }
 
       // Freeze page interactions
@@ -160,7 +160,7 @@ export class LessonManager {
           type: 'LESSON_ENDED'
         });
       } catch (msgError) {
-        console.log('Could not send lesson ended message:', msgError);
+        // ignore
       }
     } catch (error) {
       console.error('Error closing lesson:', error);

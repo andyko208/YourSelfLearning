@@ -58,10 +58,8 @@ export const HomePage: React.FC = () => {
     // Load initial data for selected date
     loadDataForDate(selectedDate);
     
-    // Listen for storage changes and update UI (only for "today")
     const handleStorageChange = async (changes: any) => {
       if (changes['xscroll-data']) {
-        // Only update metrics if "today" is selected
         if (selectedDate === 'today') {
           await loadDataForDate('today');
         }
@@ -79,7 +77,7 @@ export const HomePage: React.FC = () => {
     <div style={{
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
+        alignItems: 'stretch',
         justifyContent: 'flex-start', // Allow content to flow from top
         width: '100%',
         minHeight: '100%',
@@ -91,69 +89,44 @@ export const HomePage: React.FC = () => {
           onDateChange={handleDateChange} 
         />
         
-        {brainPercentage === 0 && selectedDate === 'today' ? (
-          // Brain fried state - only show for today
-          <div style={{
-            backgroundColor: '#2a2a2a',
-            border: '3px solid black',
-            borderRadius: '16px',
-            padding: '20px',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            minHeight: '132px',
-            opacity: 0.8,
-            width: '100%'
-          }}>
-            <div style={{
-              color: '#ff4444',
-              fontSize: '18px',
-              fontWeight: 'bold',
-              textAlign: 'center',
-              lineHeight: '1.4'
-            }}>
-              BRAIN FRIED!
-            </div>
-          </div>
-        ) : (
-          // Normal slot machine panel
-          <div style={{
-            backgroundColor: '#f5f5f5',
-            border: '3px solid black',
-            borderRadius: '16px',
-            padding: '20px',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: '12px',
-            alignItems: 'stretch',
-            width: '100%'
-          }}>
-            <MetricSlot
-              type="scroll"
-              value={scrollCount}
-              label={formatScrollCount(scrollCount)}
-              sessionData={sessionData}
-              selectedDate={selectedDate}
-              isBatteryDead={false}
-            />
-            <MetricSlot
-              type="time"
-              value={timeWasted}
-              label={formatTime(timeWasted)}
-              sessionData={sessionData}
-              selectedDate={selectedDate}
-              isBatteryDead={false}
-            />
-            <MetricSlot
-              type="lesson"
-              value={lessonCount}
-              label={formatLessonCount(lessonCount)}
-              sessionData={sessionData}
-              selectedDate={selectedDate}
-              isBatteryDead={false}
-            />
-          </div>
-        )}
+        {/* Normal slot machine panel - always show */}
+        <div style={{
+          backgroundColor: '#f5f5f5',
+          border: '3px solid black',
+          borderRadius: '16px',
+          padding: '20px',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: '12px',
+          alignItems: 'stretch',
+          width: '100%',
+          boxSizing: 'border-box',
+        }}>
+          <MetricSlot
+            type="scroll"
+            value={scrollCount}
+            label={formatScrollCount(scrollCount)}
+            sessionData={sessionData}
+            selectedDate={selectedDate}
+            isBatteryDead={brainPercentage === 0 && selectedDate === 'today'}
+          />
+          <MetricSlot
+            type="time"
+            value={timeWasted}
+            label={formatTime(timeWasted)}
+            sessionData={sessionData}
+            selectedDate={selectedDate}
+            isBatteryDead={brainPercentage === 0 && selectedDate === 'today'}
+          />
+          <MetricSlot
+            type="lesson"
+            value={lessonCount}
+            label={formatLessonCount(lessonCount)}
+            sessionData={sessionData}
+            selectedDate={selectedDate}
+            isBatteryDead={brainPercentage === 0 && selectedDate === 'today'}
+          />
+        </div>
       </div>
   );
 };

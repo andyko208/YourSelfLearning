@@ -18,6 +18,11 @@ export default defineBackground(() => {
   const activeTabs = new Map<number, TabState>();
   let activeTimer: ActiveTimer | null = null;
   
+  // Brain battery recharge management
+  let brainRechargeInterval: ReturnType<typeof setInterval> | null = null;
+  let lastBatteryUpdate = 0;
+  const BATTERY_RECHARGE_INTERVAL = 2000; // 2 seconds (same as content script)
+  
   async function shouldTrackUrl(url: string): Promise<boolean> {
     if (!url) return false;
     
@@ -56,6 +61,9 @@ export default defineBackground(() => {
     
     // Manage timer based on active tracked tabs
     await manageTimer();
+    
+    // Manage brain battery recharge based on tab state
+    await manageBrainBatteryRecharge();
   }
 
   async function manageTimer() {
@@ -124,6 +132,59 @@ export default defineBackground(() => {
     }
   }
 
+  // Brain battery recharge functions
+  function startBrainBatteryRecharge() {
+    if (brainRechargeInterval) return; // Already running
+    lastBatteryUpdate = Date.now();
+    
+    brainRechargeInterval = setInterval(async () => {
+      // Check if user is currently on any enabled sites
+      const activeTrackedTab = Array.from(activeTabs.values())
+        .find(tab => tab.isActive && tab.isTrackedSite);
+      
+      if (activeTrackedTab) {
+        stopBrainBatteryRecharge();
+        return;
+      }
+      
+      const now = Date.now();
+      const secondsElapsed = Math.floor((now - lastBatteryUpdate) / 1000);
+      
+      if (secondsElapsed >= 2) {
+        try {
+          const data = await StorageUtils.getStorageData();
+          if (data.brainBattery < 100) {
+            await StorageUtils.incrementBrainBattery(secondsElapsed);
+          }
+          lastBatteryUpdate = now;
+        } catch (error: any) {
+          console.error('Error recharging brain battery (background):', error);
+        }
+      }
+    }, BATTERY_RECHARGE_INTERVAL);
+  }
+
+  function stopBrainBatteryRecharge() {
+    if (!brainRechargeInterval) return;
+    clearInterval(brainRechargeInterval);
+    brainRechargeInterval = null;
+  }
+
+  async function manageBrainBatteryRecharge() {
+    const activeTrackedTab = Array.from(activeTabs.values())
+      .find(tab => tab.isActive && tab.isTrackedSite);
+    
+    if (activeTrackedTab) {
+      // User is on enabled site, stop recharging
+      stopBrainBatteryRecharge();
+    } else {
+      // User is not on any enabled sites, start recharging
+      if (!brainRechargeInterval) {
+        startBrainBatteryRecharge();
+      }
+    }
+  }
+
   // Tab event listeners
   browser.tabs.onUpdated.addListener(async (tabId: any, changeInfo: any, tab: any) => {
     if (changeInfo.url && tab.url) {
@@ -151,12 +212,13 @@ export default defineBackground(() => {
     }
     activeTabs.delete(tabId);
     await manageTimer();
+    await manageBrainBatteryRecharge();
   });
 
   // Window focus events
   browser.windows.onFocusChanged.addListener(async (windowId: any) => {
     if (windowId === browser.windows.WINDOW_ID_NONE) {
-      // All windows lost focus - stop timer
+      // All windows lost focus - stop timer and start brain recharge
       if (activeTimer) {
         try {
           await browser.tabs.sendMessage(activeTimer.tabId, {
@@ -165,6 +227,11 @@ export default defineBackground(() => {
         } catch (error) {
           console.log('Could not send pause message:', error);
         }
+      }
+      
+      // Start brain battery recharge since user is away from all sites
+      if (!brainRechargeInterval) {
+        startBrainBatteryRecharge();
       }
     } else {
       // Window gained focus - resume timer if needed
@@ -178,9 +245,7 @@ export default defineBackground(() => {
   // Handle messages from content scripts
   browser.runtime.onMessage.addListener(async (message: any, sender: any) => {
     if (message.type === 'SCROLL_DETECTED' && sender.tab?.id) {
-      // Content script detected a scroll - this is handled in content script
-      // Background script just needs to be aware
-      console.log('Scroll detected in tab:', sender.tab.id);
+      // Content script detected a scroll
     }
     
     if (message.type === 'REQUEST_TIMER_STATE' && sender.tab?.id) {
@@ -194,7 +259,7 @@ export default defineBackground(() => {
           startTime: isActive ? activeTimer?.startTime : null
         });
       } catch (error) {
-        console.log('Could not send timer state response:', error);
+        // ignore
       }
     }
 
@@ -203,7 +268,6 @@ export default defineBackground(() => {
       const tabState = activeTabs.get(sender.tab.id);
       if (tabState) {
         tabState.hasActiveLesson = true;
-        console.log('Lesson started in tab:', sender.tab.id);
         
         // If this tab has the active timer, pause it
         if (activeTimer && activeTimer.tabId === sender.tab.id) {
@@ -212,7 +276,7 @@ export default defineBackground(() => {
               type: 'PAUSE_TIMER'
             });
           } catch (error) {
-            console.log('Could not send pause message during lesson:', error);
+            // ignore
           }
         }
       }
@@ -223,7 +287,6 @@ export default defineBackground(() => {
       const tabState = activeTabs.get(sender.tab.id);
       if (tabState) {
         tabState.hasActiveLesson = false;
-        console.log('Lesson ended in tab:', sender.tab.id);
         
         // Resume timer management
         await manageTimer();
@@ -235,8 +298,11 @@ export default defineBackground(() => {
   browser.tabs.query({ active: true, currentWindow: true }).then(async (tabs: any[]) => {
     if (tabs.length > 0 && tabs[0].url && tabs[0].id) {
       await updateTabState(tabs[0].id, tabs[0].url, true);
+    } else {
+      // No active tab or no enabled sites, start brain battery recharge
+      await manageBrainBatteryRecharge();
     }
   });
 
-  console.log('🚀 XScroll background script initialized');
+  
 });

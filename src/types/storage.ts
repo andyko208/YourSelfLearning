@@ -18,17 +18,18 @@ export interface StorageData {
     enabledSites: string[];
     lessonFrequency: number;
     frequencyMode: 'scrolls' | 'time';
-    selectedTheme: 'how-to' | 'what-is' | 'why';
+    selectedTheme: string;
     selectedTopics: string[]; // deprecated: kept for compatibility
-    selectedTopicsByTheme?: {
-      'how-to': string[];
-      'what-is': string[];
-      'why': string[];
-    };
+    selectedTopicsByTheme?: Record<string, string[]>;
   };
   nextLessonAt: number;
   lessonActive: boolean;
   brainBattery: number;
+  // Bonus notification tracking
+  bonusTracker: {
+    lessonsCompleted: number;
+    nextBonusAt: number;
+  };
 }
 
 export type TimePeriod = 'morning' | 'afternoon' | 'night';

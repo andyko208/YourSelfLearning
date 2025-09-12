@@ -85,15 +85,18 @@ export const MetricSlot: React.FC<MetricSlotProps> = ({
         padding: '16px',
         border: '3px solid black',
         borderRadius: '12px',
-        backgroundColor: 'white',
+        backgroundColor: isBatteryDead ? '#2a2a2a' : 'white',
         width: '100%',
-        maxWidth: '132px',
-        height: '148px',
+        minHeight: '148px',
         justifyContent: 'center',
         gap: '12px',
         boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)',
         cursor: 'pointer',
-        position: 'relative'
+        position: 'relative',
+        boxSizing: 'border-box',
+        opacity: isBatteryDead ? 0.6 : 1,
+        filter: isBatteryDead ? 'grayscale(0.8)' : 'none',
+        transition: 'all 0.3s ease'
       }}
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
@@ -110,7 +113,7 @@ export const MetricSlot: React.FC<MetricSlotProps> = ({
           fontSize: '24px',
           fontWeight: 'bold',
           textAlign: 'center',
-          color: 'red',
+          color: isBatteryDead ? '#ff4444' : 'red',
           lineHeight: '1.1',
           textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
         }}>
@@ -120,7 +123,7 @@ export const MetricSlot: React.FC<MetricSlotProps> = ({
           fontSize: '12px',
           fontWeight: '600',
           textAlign: 'center',
-          color: '#64748b',
+          color: isBatteryDead ? '#999999' : '#64748b',
           textTransform: 'uppercase',
           letterSpacing: '0.5px',
         }}>

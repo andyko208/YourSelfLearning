@@ -16,6 +16,8 @@ const platforms = [
   { name: 'Amazon', domain: 'amazon.com', iconType: 'amazon' as const },
 ];
 
+export const ALL_PLATFORMS: string[] = platforms.map(p => p.domain);
+
 export const PlatformSelector: React.FC<PlatformSelectorProps> = ({ 
   selectedPlatforms, 
   onChange 

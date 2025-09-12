@@ -1,4 +1,5 @@
 import type { LessonWithShuffledAnswers } from '../../utils/lesson-parser';
+import { StorageUtils } from './storage-utils';
 
 export enum LessonState {
   BEGIN = 'BEGIN',
@@ -18,10 +19,33 @@ export class LessonOverlay {
   private callbacks: LessonOverlayCallbacks;
   private countdownTimer: number | null = null;
   private selectedAnswer: { text: string; isCorrect: boolean } | null = null;
+  
+  // Performance monitoring
+  private performanceMonitor = {
+    frameCount: 0,
+    lastTime: performance.now(),
+    fps: 60,
+    lowFpsCount: 0,
+    effectsEnabled: true
+  };
+  
+  // Animation state
+  private answerSelectedTime: number = 0;
+  private timeBonusActive: boolean = true;
+  private holdToCloseTimer: number | null = null;
 
   constructor(lesson: LessonWithShuffledAnswers, callbacks: LessonOverlayCallbacks) {
     this.lesson = lesson;
     this.callbacks = callbacks;
+    
+    // Add debug methods to global window for console testing
+    (window as any).debugBonusTracker = () => StorageUtils.debugBonusTracker();
+    (window as any).resetBonusTracker = () => StorageUtils.resetBonusTracker();
+    
+    // Start performance monitoring
+    if (this.shouldUseAnimations()) {
+      this.startPerformanceMonitoring();
+    }
   }
 
   /**
@@ -31,6 +55,17 @@ export class LessonOverlay {
     this.createOverlay();
     this.setState(LessonState.BEGIN);
     document.body.appendChild(this.overlay!);
+    
+    // Focus management for accessibility
+    this.setupFocusTrap();
+    
+    // Set initial focus to first answer button
+    setTimeout(() => {
+      const firstAnswer = this.overlay?.querySelector('.lesson-answer') as HTMLButtonElement;
+      if (firstAnswer) {
+        firstAnswer.focus();
+      }
+    }, 100);
   }
 
   /**
@@ -75,8 +110,8 @@ export class LessonOverlay {
         }
 
         @keyframes pulseGlow {
-          0%, 100% { filter: drop-shadow(0 0 0 rgba(102,126,234,0.0)); }
-          50% { filter: drop-shadow(0 0 10px rgba(102,126,234,0.6)); }
+          0%, 100% { filter: drop-shadow(0 0 0 rgba(0,0,0,0.0)); }
+          50% { filter: drop-shadow(0 0 10px rgba(0,0,0,0.6)); }
         }
 
         @keyframes successBounce {
@@ -84,6 +119,50 @@ export class LessonOverlay {
           30% { transform: scale(1.06); }
           60% { transform: scale(0.98); }
           100% { transform: scale(1); }
+        }
+        
+        @keyframes curiosityRingFill {
+          0% { stroke-dashoffset: 283; }
+          100% { stroke-dashoffset: 0; }
+        }
+        
+        @keyframes sparkleGlint {
+          0% { transform: scale(0) rotate(0deg); opacity: 0; }
+          50% { transform: scale(1.2) rotate(180deg); opacity: 1; }
+          100% { transform: scale(0) rotate(360deg); opacity: 0; }
+        }
+        
+        @keyframes holdRingFill {
+          0% { stroke-dashoffset: 283; }
+          100% { stroke-dashoffset: 0; }
+        }
+        
+        @keyframes timeBonusPulse {
+          0%, 100% { transform: scale(1); opacity: 0.9; }
+          50% { transform: scale(1.1); opacity: 1; }
+        }
+        
+        @keyframes bonusNotificationPulse {
+          0%, 100% { 
+            transform: translateX(-50%) scale(1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+          }
+          50% { 
+            transform: translateX(-50%) scale(1.05);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+          }
+        }
+        
+      @keyframes blackBurst {
+          0% { transform: scale(0) rotate(0deg); opacity: 1; }
+          100% { transform: scale(3) rotate(720deg); opacity: 0; }
+        }
+        
+        .xscroll-sparkle {
+          position: absolute;
+          width: 20px;
+          height: 20px;
+          pointer-events: none;
         }
       `;
       document.head.appendChild(style);
@@ -108,7 +187,7 @@ export class LessonOverlay {
     `;
     
     this.overlay.innerHTML = `
-      <div class="lesson-panel" style="
+      <div class="lesson-panel" role="dialog" aria-labelledby="lesson-question" aria-describedby="lesson-explanation" style="
         background: white !important;
         border-radius: 20px !important;
         padding: 40px !important;
@@ -120,7 +199,7 @@ export class LessonOverlay {
         text-align: center !important;
       ">
         <div class="lesson-content">
-          <h2 class="lesson-question" style="
+          <h2 id="lesson-question" class="lesson-question" style="
             font-size: 24px !important;
             font-weight: 700 !important;
             color: #333 !important;
@@ -135,7 +214,7 @@ export class LessonOverlay {
             margin-bottom: 30px !important;
           ">
             ${this.lesson.answers.map((answer, index) => `
-              <button class="lesson-answer" data-answer-index="${index}" style="
+              <button class="lesson-answer" data-answer-index="${index}" aria-label="Answer option ${index + 1}: ${answer.text}" style="
                 background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%) !important;
                 border: 2px solid transparent !important;
                 border-radius: 16px !important;
@@ -178,7 +257,7 @@ export class LessonOverlay {
               </button>
             `).join('')}
           </div>
-          <div class="lesson-explanation" style="
+          <div id="lesson-explanation" class="lesson-explanation" aria-live="polite" style="
             display: none;
             margin-top: 20px !important;
             padding: 20px !important;
@@ -200,62 +279,104 @@ export class LessonOverlay {
               gap: 20px !important;
               flex-wrap: wrap !important;
             ">
-              <a href="${this.lesson.reference}" target="_blank" class="learn-more-btn" style="
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-                color: white !important;
-                text-decoration: none !important;
-                padding: 16px 32px !important;
+              <div class="learn-more-wrapper" style="
+                position: relative !important;
+                display: inline-block !important;
+              ">
+                <!-- Time Bonus Notification -->
+                <div class="time-bonus-notification" style="
+                  position: absolute !important;
+                  bottom: -45px !important;
+                  left: 50% !important;
+                  transform: translateX(-50%) !important;
+                  background: #000000 !important;
+                  color: #ffffff !important;
+                  padding: 6px 12px !important;
+                  border-radius: 20px !important;
+                  font-size: 13px !important;
+                  font-weight: 700 !important;
+                  white-space: nowrap !important;
+                  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+                  border: 2px solid #333333 !important;
+                  opacity: 0 !important;
+                  transition: opacity 0.3s ease !important;
+                  z-index: 10 !important;
+                  display: flex !important;
+                  align-items: center !important;
+                  gap: 6px !important;
+                ">
+                  <span style="font-size: 16px !important;">⚡</span>
+                  <span class="bonus-text">QUICK CLICK: +2% Battery</span>
+                  <span class="bonus-timer" style="
+                    background: rgba(255, 255, 255, 0.2) !important;
+                    padding: 2px 6px !important;
+                    border-radius: 10px !important;
+                    font-size: 12px !important;
+                    min-width: 20px !important;
+                    text-align: center !important;
+                  ">3</span>
+                </div>
+                
+                <a href="${this.lesson.reference}" target="_blank" class="learn-more-btn" aria-label="Learn more about this topic. Click within 3 seconds for bonus brain battery." style="
+                  background: linear-gradient(145deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.08)) !important;
+                  color: #000000 !important;
+                  text-decoration: none !important;
+                  padding: 14px 28px !important;
+                  border-radius: 12px !important;
+                  border: 2px solid rgba(0, 0, 0, 0.08) !important;
+                  font-weight: 700 !important;
+                  font-size: 15px !important;
+                  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+                  position: relative !important;
+                  overflow: hidden !important;
+                  display: inline-flex !important;
+                  align-items: center !important;
+                  gap: 8px !important;
+                  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
+                  transform: scale(1) !important;
+                  min-width: 160px !important;
+                  justify-content: center !important;
+                ">
+                  <span class="learn-more-text" style="
+                    position: relative !important;
+                    z-index: 2 !important;
+                  ">Learn More</span>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="
+                    position: relative !important;
+                    z-index: 2 !important;
+                    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                  ">
+                    <path d="M7 7h10v10"/>
+                    <path d="M7 17L17 7"/>
+                  </svg>
+                  <span class="learn-more-shimmer" style="
+                    position: absolute !important;
+                    top: 0 !important;
+                    left: -100% !important;
+                    width: 100% !important;
+                    height: 100% !important;
+                    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent) !important;
+                    animation: shimmer 3s infinite !important;
+                  "></span>
+                </a>
+              </div>
+              <button class="countdown-button" disabled style="
+                background: linear-gradient(145deg, rgba(0, 0, 0, 0.03), rgba(0, 0, 0, 0.06)) !important;
+                color: rgba(0, 0, 0, 0.4) !important;
+                border: 2px solid rgba(0, 0, 0, 0.05) !important;
+                padding: 14px 28px !important;
                 border-radius: 12px !important;
                 font-weight: 700 !important;
-                font-size: 16px !important;
-                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-                font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-                position: relative !important;
-                overflow: hidden !important;
-                display: inline-flex !important;
-                align-items: center !important;
-                gap: 8px !important;
-                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4) !important;
-                transform: scale(1) !important;
-                animation: pulseGlow 2s infinite !important;
-              ">
-                <span class="learn-more-text" style="
-                  position: relative !important;
-                  z-index: 2 !important;
-                ">Learn More</span>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="
-                  position: relative !important;
-                  z-index: 2 !important;
-                  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-                ">
-                  <path d="M7 7h10v10"/>
-                  <path d="M7 17L17 7"/>
-                </svg>
-                <span class="learn-more-shimmer" style="
-                  position: absolute !important;
-                  top: 0 !important;
-                  left: -100% !important;
-                  width: 100% !important;
-                  height: 100% !important;
-                  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent) !important;
-                  animation: shimmer 3s infinite !important;
-                "></span>
-              </a>
-              <button class="countdown-button" disabled style="
-                background: rgba(108, 117, 125, 0.1) !important;
-                color: #6c757d !important;
-                border: 2px solid rgba(108, 117, 125, 0.2) !important;
-                padding: 12px 20px !important;
-                border-radius: 8px !important;
-                font-weight: 600 !important;
-                font-size: 13px !important;
+                font-size: 15px !important;
                 cursor: not-allowed !important;
                 transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
                 font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-                min-width: 100px !important;
+                min-width: 160px !important;
                 position: relative !important;
                 overflow: hidden !important;
-                opacity: 0.7 !important;
+                opacity: 0.6 !important;
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
               ">
                 <span class="countdown-text" style="
                   position: relative !important;
@@ -318,39 +439,23 @@ export class LessonOverlay {
       });
     });
 
-    // Add close button handler (initially disabled)
+    // Add close button handler with hold-to-close functionality
     const closeButton = this.overlay.querySelector('.countdown-button') as HTMLButtonElement;
     if (closeButton) {
-      closeButton.addEventListener('click', this.handleCloseClick.bind(this));
-      
-      // Add hover effects for enabled state
-      closeButton.addEventListener('mouseenter', () => {
+      // Setup hold-to-close interaction once the button is enabled
+      const originalClickHandler = (e: Event) => {
         if (!closeButton.disabled) {
-          closeButton.style.transform = 'scale(1.05) !important';
-          closeButton.style.boxShadow = '0 6px 20px rgba(40, 167, 69, 0.3) !important';
+          e.preventDefault(); // Prevent default click
         }
-      });
-      
-      closeButton.addEventListener('mouseleave', () => {
-        if (!closeButton.disabled) {
-          closeButton.style.transform = 'scale(1) !important';
-          closeButton.style.boxShadow = 'none !important';
-        }
-      });
+      };
+      closeButton.addEventListener('click', originalClickHandler);
     }
     
     // Add Learn More button enhanced interactions
     const learnMoreBtn = this.overlay.querySelector('.learn-more-btn') as HTMLAnchorElement;
-    if (learnMoreBtn) {
-      learnMoreBtn.addEventListener('mouseenter', () => {
-        learnMoreBtn.style.transform = 'scale(1.05) translateY(-2px) !important';
-        learnMoreBtn.style.boxShadow = '0 8px 30px rgba(102, 126, 234, 0.6) !important';
-        const arrow = learnMoreBtn.querySelector('svg');
-        if (arrow) {
-          (arrow as SVGElement).style.transform = 'translate(3px, -3px) !important';
-        }
-      });
-
+    const learnMoreWrapper = this.overlay.querySelector('.learn-more-wrapper') as HTMLElement;
+    if (learnMoreBtn && learnMoreWrapper) {
+      this.setupLearnMoreInteractions(learnMoreBtn, learnMoreWrapper);
     }
   }
 
@@ -376,8 +481,12 @@ export class LessonOverlay {
   /**
    * Handle close button click
    */
-  private handleCloseClick(): void {
+  private async handleCloseClick(): Promise<void> {
     if (this.currentState !== LessonState.AFTER_COUNTDOWN) return;
+    
+    console.log(`🎯 Lesson completed! Tracking completion...`);
+    // Track lesson completion for bonus notification logic
+    await StorageUtils.incrementLessonCompletedAndCheckBonus();
     
     this.callbacks.onLessonComplete();
     this.cleanup();
@@ -394,7 +503,9 @@ export class LessonOverlay {
         this.renderBeginState();
         break;
       case LessonState.CHOICE_SELECTED:
-        this.renderChoiceSelectedState();
+        this.renderChoiceSelectedState().catch(error => {
+          console.error('Error rendering choice selected state:', error);
+        });
         break;
       case LessonState.AFTER_COUNTDOWN:
         this.renderAfterCountdownState();
@@ -429,9 +540,24 @@ export class LessonOverlay {
   /**
    * Render state after user selects an answer
    */
-  private renderChoiceSelectedState(): void {
+  private async renderChoiceSelectedState(): Promise<void> {
     if (!this.selectedAnswer) {
       return;
+    }
+    
+    // Track answer selection time for time bonus
+    this.answerSelectedTime = Date.now();
+    
+    // Start time bonus countdown only if bonus should be shown
+    const shouldShowBonus = await StorageUtils.shouldShowTimeBonusNotification();
+    console.log(`🎯 Lesson overlay: shouldShowBonus=${shouldShowBonus}`);
+    if (shouldShowBonus) {
+      console.log(`🎯 Starting time bonus countdown!`);
+      this.startTimeBonusCountdown();
+    } else {
+      console.log(`🎯 No bonus this lesson`);
+      // No bonus notification, so no time bonus available
+      this.timeBonusActive = false;
     }
 
     // Disable all answer buttons
@@ -459,6 +585,9 @@ export class LessonOverlay {
       this.showConfetti();
       // Add encouraging message
       this.showEncouragementMessage();
+      this.announceToScreenReader('Correct! Great job!');
+    } else {
+      this.announceToScreenReader('Incorrect. The correct answer is now highlighted.');
     }
 
     // Show explanation with entrance animation
@@ -522,20 +651,21 @@ export class LessonOverlay {
       
       // Enable and transform the button
       closeButton.disabled = false;
-      countdownText.textContent = 'Close';
+      countdownText.textContent = 'Hold 3s to Close';
       
-      // Update button styling for enabled state
-      closeButton.style.setProperty('background', 'linear-gradient(135deg, #56ab2f 0%, #a8e063 100%)', 'important');
-      closeButton.style.setProperty('color', 'white', 'important');
-      closeButton.style.setProperty('border', 'none', 'important');
+      // Update button styling for enabled state - gradient background
+      closeButton.style.setProperty('background', 'linear-gradient(145deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.08))', 'important');
+      closeButton.style.setProperty('color', '#000000', 'important');
+      closeButton.style.setProperty('border', '2px solid rgba(0, 0, 0, 0.08)', 'important');
       closeButton.style.setProperty('cursor', 'pointer', 'important');
       closeButton.style.setProperty('opacity', '1', 'important');
       closeButton.style.setProperty('transform', 'scale(1)', 'important');
       closeButton.style.setProperty('padding', '14px 28px', 'important');
       closeButton.style.setProperty('font-size', '15px', 'important');
       closeButton.style.setProperty('font-weight', '700', 'important');
-      closeButton.style.setProperty('box-shadow', '0 4px 15px rgba(86, 171, 47, 0.3)', 'important');
+      closeButton.style.setProperty('box-shadow', '0 1px 3px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5)', 'important');
       closeButton.style.setProperty('min-width', '160px', 'important');
+      closeButton.style.setProperty('position', 'relative', 'important');
       
       // Hide progress bar
       if (countdownProgress) {
@@ -552,72 +682,73 @@ export class LessonOverlay {
         easing: 'cubic-bezier(0.68, -0.55, 0.265, 1.55)'
       });
       
+      // Setup hold-to-close interaction
+      this.setupHoldToClose(closeButton);
+      
       // Add subtle bounce animation
       setTimeout(() => {
         closeButton.style.animation = 'successBounce 2s infinite !important';
       }, 400);
     }
     
-    // Make Learn More button even more prominent
+    // Make Learn More button prominent with subtle animation
     const learnMoreBtn = this.overlay?.querySelector('.learn-more-btn') as HTMLAnchorElement;
     if (learnMoreBtn) {
-      learnMoreBtn.style.animation = 'pulseGlow 1.5s infinite !important';
-      learnMoreBtn.style.transform = 'scale(1.05) !important';
+      learnMoreBtn.style.animation = 'none !important';
+      learnMoreBtn.style.transform = 'scale(1) !important';
     }
   }
 
   /**
-   * Add shake animation for wrong answer
+   * Add X mark for wrong answer
    */
   private addShakeAnimation(button: HTMLElement): void {
-    // Prefer animating inner content to avoid conflicts with parent transform !important
-    const content = (button.querySelector('span') as HTMLElement) || button;
+    // Add X mark indicator
+    const existing = button.querySelector('.xscroll-x-mark');
+    if (!existing) {
+      const mark = document.createElement('span');
+      mark.className = 'xscroll-x-mark';
+      mark.style.cssText = `
+        position: absolute !important;
+        right: 14px !important;
+        top: 14px !important;
+        width: 22px !important;
+        height: 22px !important;
+        border-radius: 50% !important;
+        background: #ff4444 !important;
+        color: white !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-weight: 800 !important;
+        font-size: 14px !important;
+        box-shadow: 0 2px 8px rgba(255, 68, 68, 0.3) !important;
+        transform: scale(0) !important;
+        z-index: 3 !important;
+        pointer-events: none !important;
+        animation: xscroll-check-pop 300ms cubic-bezier(0.68, -0.55, 0.265, 1.55) 1 forwards !important;
+      `;
+      mark.textContent = '✕';
+      button.appendChild(mark);
+    }
 
-    // Emphasize wrong selection styles
-    button.style.cssText += `
-      border-color: rgba(220, 53, 69, 0.6) !important;
-      background: linear-gradient(135deg, #fff5f5 0%, #ffe3e3 100%) !important;
-      color: #842029 !important;
-    `;
-
-    // Restart animation reliably
-    content.style.removeProperty('animation');
-    // Force reflow
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-    (content as any).offsetHeight;
-    content.style.cssText += `
-      animation: xscroll-shake 500ms cubic-bezier(0.68, -0.55, 0.265, 1.55) 1 !important;
-    `;
+    // Subtle shake animation on the answer text
+    const content = button.querySelector('.answer-text') as HTMLElement;
+    if (content) {
+      content.style.removeProperty('animation');
+      // Force reflow
+      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+      (content as any).offsetHeight;
+      content.style.cssText += `
+        animation: xscroll-shake 400ms cubic-bezier(0.68, -0.55, 0.265, 1.55) 1 !important;
+      `;
+    }
   }
   /**
-   * Add success animation for correct answer
+   * Add checkmark for correct answer
    */
   private addSuccessAnimation(button: HTMLElement): void {
-    // Visual success styling
-    button.style.cssText += `
-      border-color: rgba(40, 167, 69, 0.7) !important;
-      background: linear-gradient(135deg, #e8f7ed 0%, #d4f3e1 100%) !important;
-      color: #0f5132 !important;
-    `;
-
-    // Pop/glow animations on inner content to avoid transform conflicts
-    const content = (button.querySelector('span') as HTMLElement) || button;
-    content.style.removeProperty('animation');
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-    (content as any).offsetHeight;
-    content.style.cssText += `
-      animation: xscroll-success-pop 350ms cubic-bezier(0.4, 0, 0.2, 1) 1 !important;
-    `;
-
-    // Glow on button itself
-    button.style.removeProperty('animation');
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-    (button as any).offsetHeight;
-    button.style.cssText += `
-      animation: xscroll-success-glow 700ms ease 1 !important;
-    `;
-
-    // Add checkmark badge
+    // Add checkmark indicator
     const existing = button.querySelector('.xscroll-checkmark');
     if (!existing) {
       const mark = document.createElement('span');
@@ -629,21 +760,32 @@ export class LessonOverlay {
         width: 22px !important;
         height: 22px !important;
         border-radius: 50% !important;
-        background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%) !important;
+        background: #4CAF50 !important;
         color: white !important;
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
         font-weight: 800 !important;
         font-size: 14px !important;
-        box-shadow: 0 6px 18px rgba(86, 171, 47, 0.35) !important;
+        box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3) !important;
         transform: scale(0) !important;
         z-index: 3 !important;
         pointer-events: none !important;
-        animation: xscroll-check-pop 260ms cubic-bezier(0.68, -0.55, 0.265, 1.55) 1 forwards !important;
+        animation: xscroll-check-pop 300ms cubic-bezier(0.68, -0.55, 0.265, 1.55) 1 forwards !important;
       `;
       mark.textContent = '✓';
       button.appendChild(mark);
+    }
+
+    // Subtle success animation on the answer text
+    const content = button.querySelector('.answer-text') as HTMLElement;
+    if (content) {
+      content.style.removeProperty('animation');
+      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+      (content as any).offsetHeight;
+      content.style.cssText += `
+        animation: xscroll-success-pop 350ms cubic-bezier(0.4, 0, 0.2, 1) 1 !important;
+      `;
     }
   }
 
@@ -666,13 +808,13 @@ export class LessonOverlay {
       top: 20% !important;
       left: 50% !important;
       transform: translate(-50%, -50%) scale(0) !important;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+      background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%) !important;
       color: white !important;
       padding: 16px 32px !important;
       border-radius: 50px !important;
       font-size: 24px !important;
       font-weight: bold !important;
-      box-shadow: 0 10px 40px rgba(102, 126, 234, 0.4) !important;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4) !important;
       z-index: 2147483649 !important;
       pointer-events: none !important;
     `;
@@ -870,12 +1012,12 @@ export class LessonOverlay {
     const panel = this.overlay?.querySelector('.lesson-panel') as HTMLElement;
     if (!panel) return;
 
-    // Create glow effect
+    // Create warm glow effect with vibrant colors
     const originalBoxShadow = panel.style.boxShadow;
     panel.animate([
       { boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)' },
-      { boxShadow: '0 0 80px rgba(76, 175, 80, 0.6), 0 20px 60px rgba(0, 0, 0, 0.3)' },
-      { boxShadow: '0 0 120px rgba(76, 175, 80, 0.8), 0 20px 60px rgba(0, 0, 0, 0.3)' },
+      { boxShadow: '0 0 60px rgba(255, 107, 53, 0.4), 0 0 100px rgba(247, 147, 30, 0.3), 0 20px 60px rgba(0, 0, 0, 0.2)' },
+      { boxShadow: '0 0 80px rgba(255, 107, 53, 0.6), 0 0 140px rgba(247, 147, 30, 0.4), 0 20px 60px rgba(0, 0, 0, 0.2)' },
       { boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)' }
     ], {
       duration: 1000,
@@ -919,7 +1061,7 @@ export class LessonOverlay {
         height: 200px !important;
         background: linear-gradient(to bottom, 
           transparent 0%, 
-          rgba(255, 215, 0, 0.8) 50%, 
+          rgba(255, 107, 53, 0.8) 50%, 
           transparent 100%) !important;
         transform-origin: center !important;
         transform: rotate(${angle}deg) !important;
@@ -952,18 +1094,28 @@ export class LessonOverlay {
   }
 
   /**
-   * Get vibrant celebration colors
+   * Get vibrant celebration colors - warm, joyful colors for genuine success feeling
    */
   private getVibrantColor(): string {
     const colors = [
-      '#FF006E', // Pink
-      '#FB5607', // Orange
-      '#FFBE0B', // Yellow
+      '#FF6B35', // Vibrant orange
+      '#F7931E', // Bright orange  
+      '#FFD23F', // Golden yellow
+      '#06D6A0', // Emerald green
+      '#118AB2', // Ocean blue
+      '#EF476F', // Coral pink
+      '#FF9F1C', // Warm orange
+      '#2D7DD2', // Sky blue
+      '#95D5B2', // Mint green
+      '#F72585', // Magenta
+      '#4361EE', // Electric blue
+      '#F77F00', // Amber
+      '#06FFA5', // Bright mint
+      '#FB5607', // Red orange
+      '#FFBE0B', // Sunflower yellow
       '#8338EC', // Purple
-      '#3A86FF', // Blue
-      '#06FFB4', // Teal
-      '#FF4365', // Coral
-      '#00F5FF', // Cyan
+      '#3A86FF', // Bright blue
+      '#FF006E', // Hot pink
     ];
     return colors[Math.floor(Math.random() * colors.length)];
   }
@@ -1068,6 +1220,13 @@ export class LessonOverlay {
       clearInterval(this.countdownTimer);
       this.countdownTimer = null;
     }
+    
+    
+    // Clear hold-to-close timer
+    if (this.holdToCloseTimer) {
+      clearTimeout(this.holdToCloseTimer);
+      this.holdToCloseTimer = null;
+    }
 
     // Remove overlay from DOM
     if (this.overlay && this.overlay.parentNode) {
@@ -1079,6 +1238,8 @@ export class LessonOverlay {
     
     this.overlay = null;
     this.selectedAnswer = null;
+    this.answerSelectedTime = 0;
+    this.timeBonusActive = true;
   }
 
   /**
@@ -1093,5 +1254,414 @@ export class LessonOverlay {
    */
   forceCleanup(): void {
     this.cleanup();
+  }
+  
+  /**
+   * Utility: Check if user prefers reduced motion
+   */
+  private shouldUseAnimations(): boolean {
+    return !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+  
+  /**
+   * Utility: Throttle function for performance-sensitive operations
+   */
+  private throttle<T extends (...args: any[]) => void>(
+    func: T,
+    delay: number
+  ): (...args: Parameters<T>) => void {
+    let lastCall = 0;
+    let timeoutId: number | null = null;
+    
+    return (...args: Parameters<T>) => {
+      const now = Date.now();
+      const timeSinceLastCall = now - lastCall;
+      
+      if (timeSinceLastCall >= delay) {
+        lastCall = now;
+        func(...args);
+      } else {
+        if (timeoutId) clearTimeout(timeoutId);
+        timeoutId = window.setTimeout(() => {
+          lastCall = Date.now();
+          func(...args);
+        }, delay - timeSinceLastCall);
+      }
+    };
+  }
+  
+  /**
+   * Start performance monitoring
+   */
+  private startPerformanceMonitoring(): void {
+    const checkFPS = () => {
+      const now = performance.now();
+      const delta = now - this.performanceMonitor.lastTime;
+      
+      if (delta >= 1000) {
+        this.performanceMonitor.fps = Math.round((this.performanceMonitor.frameCount * 1000) / delta);
+        this.performanceMonitor.frameCount = 0;
+        this.performanceMonitor.lastTime = now;
+        
+        // Disable effects if FPS is consistently low
+        if (this.performanceMonitor.fps < 30) {
+          this.performanceMonitor.lowFpsCount++;
+          if (this.performanceMonitor.lowFpsCount >= 3) {
+            this.performanceMonitor.effectsEnabled = false;
+            console.log('🎬 Disabling advanced effects due to low FPS');
+          }
+        } else {
+          this.performanceMonitor.lowFpsCount = 0;
+        }
+      }
+      
+      this.performanceMonitor.frameCount++;
+      
+      if (this.overlay) {
+        requestAnimationFrame(checkFPS);
+      }
+    };
+    
+    requestAnimationFrame(checkFPS);
+  }
+  
+  /**
+   * Check if advanced effects should be enabled
+   */
+  private shouldEnableEffects(): boolean {
+    return this.performanceMonitor.effectsEnabled && this.shouldUseAnimations();
+  }
+  
+  /**
+   * Setup enhanced Learn More button interactions
+   */
+  private setupLearnMoreInteractions(btn: HTMLAnchorElement, wrapper: HTMLElement): void {
+    // Click handler with time bonus check
+    btn.addEventListener('click', async (e) => {
+      const clickTime = Date.now();
+      const timeSinceAnswer = clickTime - this.answerSelectedTime;
+      const fastClick = timeSinceAnswer <= 3000; // Within 3 seconds
+      
+      // Show gold burst for fast clicks
+      if (fastClick && this.shouldEnableEffects()) {
+        this.showGoldBurst(btn);
+        this.announceToScreenReader('Fast click! You earned 2% brain battery bonus.');
+      } else if (fastClick) {
+        this.announceToScreenReader('Fast click! You earned 2% brain battery bonus.');
+      }
+      
+      try {
+        await StorageUtils.rewardForLearnMore(fastClick);
+      } catch (error) {
+        console.error('Error rewarding learn more click:', error);
+      }
+    });
+    
+    // Enhanced hover interactions with delicious gradient
+    btn.addEventListener('mouseenter', () => {
+      // Enhanced gradient on hover - more pronounced and inviting
+      btn.style.background = 'linear-gradient(145deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.18)) !important';
+      btn.style.transform = 'scale(1.02) translateY(-1px) !important';
+      btn.style.boxShadow = '0 3px 10px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important';
+      btn.style.borderColor = 'rgba(0, 0, 0, 0.12) !important';
+      const arrow = btn.querySelector('svg');
+      if (arrow) {
+        (arrow as SVGElement).style.transform = 'translate(2px, -2px) !important';
+      }
+    });
+    
+    btn.addEventListener('mouseleave', () => {
+      // Reset to original gradient background
+      btn.style.background = 'linear-gradient(145deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.08)) !important';
+      btn.style.transform = 'scale(1) !important';
+      btn.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5) !important';
+      btn.style.borderColor = 'rgba(0, 0, 0, 0.08) !important';
+      const arrow = btn.querySelector('svg');
+      if (arrow) {
+        (arrow as SVGElement).style.transform = 'translate(0, 0) !important';
+      }
+    });
+  }
+  
+  /**
+   * Show gold burst animation for fast clicks
+   */
+  private showGoldBurst(element: HTMLElement): void {
+    const burst = document.createElement('div');
+    burst.style.cssText = `
+      position: absolute !important;
+      top: 50% !important;
+      left: 50% !important;
+      width: 100px !important;
+      height: 100px !important;
+      background: radial-gradient(circle, rgba(0, 0, 0, 0.8) 0%, transparent 70%) !important;
+      transform: translate(-50%, -50%) scale(0) rotate(0deg) !important;
+      pointer-events: none !important;
+      z-index: 10 !important;
+      animation: blackBurst 0.6s ease-out forwards !important;
+    `;
+    
+    element.appendChild(burst);
+    setTimeout(() => burst.remove(), 600);
+  }
+  
+  /**
+   * Show sparkle effect
+   */
+  private showSparkle(element: HTMLElement): void {
+    const sparkle = document.createElement('div');
+    sparkle.className = 'xscroll-sparkle';
+    sparkle.innerHTML = '✨';
+    sparkle.style.cssText = `
+      position: absolute !important;
+      top: -10px !important;
+      right: -10px !important;
+      font-size: 24px !important;
+      animation: sparkleGlint 0.6s ease-out forwards !important;
+      pointer-events: none !important;
+      z-index: 10 !important;
+    `;
+    
+    element.appendChild(sparkle);
+    setTimeout(() => sparkle.remove(), 600);
+  }
+  
+  
+  /**
+   * Start time bonus countdown
+   */
+  private startTimeBonusCountdown(): void {
+    const timeBonusNotification = this.overlay?.querySelector('.time-bonus-notification') as HTMLElement;
+    const bonusTimer = this.overlay?.querySelector('.bonus-timer') as HTMLElement;
+    
+    // Show the notification
+    if (timeBonusNotification) {
+      timeBonusNotification.style.opacity = '1';
+      
+      // Animate notification entrance with bounce
+      timeBonusNotification.animate([
+        { transform: 'translateX(-50%) translateY(-10px) scale(0.8)', opacity: 0 },
+        { transform: 'translateX(-50%) translateY(0) scale(1.1)', opacity: 1 },
+        { transform: 'translateX(-50%) translateY(0) scale(1)', opacity: 1 }
+      ], {
+        duration: 400,
+        easing: 'cubic-bezier(0.68, -0.55, 0.265, 1.55)'
+      });
+      
+      // Add continuous pulse animation
+      setTimeout(() => {
+        timeBonusNotification.style.animation = 'bonusNotificationPulse 1s ease-in-out infinite !important';
+      }, 400);
+    }
+    
+    
+    // Countdown timer for notification
+    let timeLeft = 3;
+    const countdownInterval = setInterval(() => {
+      timeLeft--;
+      if (bonusTimer) {
+        bonusTimer.textContent = timeLeft.toString();
+        
+        // Pulse animation on timer update
+        bonusTimer.animate([
+          { transform: 'scale(1)' },
+          { transform: 'scale(1.2)' },
+          { transform: 'scale(1)' }
+        ], {
+          duration: 200,
+          easing: 'ease-in-out'
+        });
+      }
+      
+      if (timeLeft <= 0) {
+        clearInterval(countdownInterval);
+        this.timeBonusActive = false;
+        
+        // Hide notification with fade out
+        if (timeBonusNotification) {
+          timeBonusNotification.style.opacity = '0';
+        }
+      }
+    }, 1000);
+  }
+  
+  /**
+   * Setup focus trap for accessibility
+   */
+  private setupFocusTrap(): void {
+    if (!this.overlay) return;
+    
+    const focusableElements = this.overlay.querySelectorAll(
+      'button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+    );
+    
+    const firstFocusable = focusableElements[0] as HTMLElement;
+    const lastFocusable = focusableElements[focusableElements.length - 1] as HTMLElement;
+    
+    // Handle Tab key for focus trap
+    const handleTabKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      
+      if (e.shiftKey) {
+        // Shift + Tab
+        if (document.activeElement === firstFocusable) {
+          e.preventDefault();
+          lastFocusable?.focus();
+        }
+      } else {
+        // Tab
+        if (document.activeElement === lastFocusable) {
+          e.preventDefault();
+          firstFocusable?.focus();
+        }
+      }
+    };
+    
+    // Handle Escape key to close
+    const handleEscapeKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && this.currentState === LessonState.AFTER_COUNTDOWN) {
+        this.handleCloseClick();
+      }
+    };
+    
+    this.overlay.addEventListener('keydown', handleTabKey);
+    this.overlay.addEventListener('keydown', handleEscapeKey);
+  }
+  
+  /**
+   * Announce messages to screen readers
+   */
+  private announceToScreenReader(message: string): void {
+    const announcement = document.createElement('div');
+    announcement.setAttribute('role', 'status');
+    announcement.setAttribute('aria-live', 'polite');
+    announcement.style.cssText = `
+      position: absolute !important;
+      left: -10000px !important;
+      width: 1px !important;
+      height: 1px !important;
+      overflow: hidden !important;
+    `;
+    announcement.textContent = message;
+    document.body.appendChild(announcement);
+    
+    setTimeout(() => {
+      announcement.remove();
+    }, 1000);
+  }
+  
+  /**
+   * Setup hold-to-close interaction for Close button with progressive background darkening
+   */
+  private setupHoldToClose(button: HTMLButtonElement): void {
+    let isHolding = false;
+    let holdStartTime = 0;
+    let animationFrame: number | null = null;
+    const originalBackground = 'linear-gradient(145deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.08))';
+    const originalText = button.querySelector('.countdown-text')?.textContent || 'Hold 3s to Close';
+    const countdownText = button.querySelector('.countdown-text') as HTMLElement;
+    
+    // Add hover effect for close button with gradient
+    const addHoverEffect = () => {
+      if (button.disabled || isHolding) return;
+      button.style.background = 'linear-gradient(145deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.18)) !important';
+      button.style.transform = 'scale(1.02) !important';
+      button.style.boxShadow = '0 3px 10px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important';
+    };
+    
+    const removeHoverEffect = () => {
+      if (button.disabled || isHolding) return;
+      button.style.background = originalBackground + ' !important';
+      button.style.transform = 'scale(1) !important';
+      button.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5) !important';
+    };
+    
+    const startHold = () => {
+      if (button.disabled) return;
+      
+      isHolding = true;
+      holdStartTime = Date.now();
+      button.style.transform = 'scale(0.98) !important';
+      
+      // Progressive background darkening animation
+      const animate = () => {
+        if (!isHolding) return;
+        
+        const elapsed = Date.now() - holdStartTime;
+        const progress = Math.min(elapsed / 3000, 1); // 3000ms (3 seconds) to complete
+        
+        // Calculate darkness based on progress - gradient gets darker
+        const startOpacity = 0.02 + (progress * 0.5); // 0.02 to 0.52
+        const endOpacity = 0.08 + (progress * 0.72);  // 0.08 to 0.8
+        button.style.background = `linear-gradient(145deg, rgba(0, 0, 0, ${startOpacity}), rgba(0, 0, 0, ${endOpacity})) !important`;
+        
+        // Update text color to white as background darkens
+        if (endOpacity > 0.4) {
+          button.style.color = '#ffffff !important';
+        }
+        
+        // Update countdown text to show remaining time
+        const remainingSeconds = Math.ceil(3 - (progress * 3));
+        if (countdownText && remainingSeconds > 0) {
+          countdownText.textContent = `Hold ${remainingSeconds}s...`;
+        }
+        
+        if (progress >= 1) {
+          // Hold complete - trigger close
+          this.handleCloseClick();
+          releaseHold();
+        } else {
+          animationFrame = requestAnimationFrame(animate);
+        }
+      };
+      
+      animationFrame = requestAnimationFrame(animate);
+    };
+    
+    const releaseHold = () => {
+      isHolding = false;
+      button.style.transform = 'scale(1) !important';
+      button.style.background = originalBackground + ' !important';
+      button.style.color = '#000000 !important';
+      button.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5) !important';
+      
+      // Restore original text
+      if (countdownText) {
+        countdownText.textContent = originalText;
+      }
+      
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+        animationFrame = null;
+      }
+    };
+    
+    // Hover effects
+    button.addEventListener('mouseenter', addHoverEffect);
+    button.addEventListener('mouseleave', () => {
+      removeHoverEffect();
+      if (isHolding) {
+        releaseHold();
+      }
+    });
+    
+    // Mouse events
+    button.addEventListener('mousedown', startHold);
+    button.addEventListener('mouseup', releaseHold);
+    
+    // Touch events
+    button.addEventListener('touchstart', startHold);
+    button.addEventListener('touchend', releaseHold);
+    button.addEventListener('touchcancel', releaseHold);
+    
+    // Keyboard support (Enter key)
+    button.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !button.disabled) {
+        this.handleCloseClick();
+      }
+    });
+    
+    // Add aria-label
+    button.setAttribute('aria-label', 'Hold for 3 seconds to close lesson - button will darken as you hold');
   }
 }

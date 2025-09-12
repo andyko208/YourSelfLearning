@@ -1,5 +1,6 @@
 import { StorageUtils } from './content/storage-utils';
 import { LessonManager } from './content/lesson-manager';
+import { BrainFriedOverlay, BrainFriedOverlayCallbacks } from './content/brain-fried-overlay';
 import { browser } from '../utils/browser-api';
 
 export default defineContentScript({
@@ -20,16 +21,89 @@ export default defineContentScript({
     let timeUpdateInterval: number | null = null;
     let lastTimeUpdate = 0;
     
-    // Brain battery recharge timer (runs when NOT on tracked sites)
-    let brainRechargeInterval: number | null = null;
-    let lastBatteryUpdate = 0;
+    // Brain battery monitoring (runs independently on tracked sites)
+    let brainBatteryCheckInterval: number | null = null;
     
     const SCROLL_COOLDOWN = 2000; // 2 seconds
     const TIME_UPDATE_INTERVAL = 2000; // 2 seconds (batch writes to reduce lock pressure)
-    const BATTERY_RECHARGE_INTERVAL = 2000; // 2 seconds (batch writes)
+    const BRAIN_BATTERY_CHECK_INTERVAL = 1000; // 1 second (frequent monitoring for responsiveness)
 
     // Initialize lesson manager
     const lessonManager = new LessonManager();
+
+    // Initialize brain fried overlay
+    const brainFriedOverlay = new BrainFriedOverlay({
+      onClose: () => {
+        // Reset the brain fried state so monitoring can resume if needed
+        isBrainFried = false;
+      },
+      onTakeBreak: async () => {
+        // Give a small battery boost for taking a break and reset state
+        try {
+          await StorageUtils.incrementBrainBattery(15); // Boost for taking a break
+          isBrainFried = false;
+        } catch (error: any) {
+          console.error('Error boosting brain battery:', error);
+        }
+      }
+    } as BrainFriedOverlayCallbacks);
+
+    let isBrainFried = false;
+
+    async function checkBrainBatteryLevel() {
+      // Only check on tracked pages
+      if (!(await shouldTrackThisPage())) return;
+      
+      try {
+        const data = await StorageUtils.getStorageData();
+        const brainBattery = data.brainBattery;
+        
+        if (brainBattery <= 0 && !isBrainFried) {
+          // Brain is fried, show overlay and stop further checking
+          isBrainFried = true;
+          brainFriedOverlay.show();
+        } else if (brainBattery > 0 && isBrainFried) {
+          // Brain battery recovered (should only happen if user left and came back, or took a break)
+          isBrainFried = false;
+          if (brainFriedOverlay.isOverlayActive()) {
+            brainFriedOverlay.cleanup();
+          }
+        }
+      } catch (error: any) {
+        console.error('Error checking brain battery level:', error);
+      }
+    }
+
+    // Start independent brain battery monitoring for tracked pages
+    function startBrainBatteryMonitoring() {
+      if (brainBatteryCheckInterval) return; // Already running
+      
+      brainBatteryCheckInterval = window.setInterval(async () => {
+        // Only check if overlay is not already active
+        if (!isBrainFried) {
+          await checkBrainBatteryLevel();
+        }
+      }, BRAIN_BATTERY_CHECK_INTERVAL);
+      
+      // Run initial check
+      checkBrainBatteryLevel().catch((error: any) => {
+        console.error('Error in initial brain battery check:', error);
+      });
+    }
+
+    // Stop brain battery monitoring
+    function stopBrainBatteryMonitoring() {
+      if (!brainBatteryCheckInterval) return;
+      
+      clearInterval(brainBatteryCheckInterval);
+      brainBatteryCheckInterval = null;
+      
+      // Clean up overlay if active when leaving tracked site
+      if (isBrainFried && brainFriedOverlay.isOverlayActive()) {
+        brainFriedOverlay.cleanup();
+        isBrainFried = false;
+      }
+    }
 
     async function shouldTrackThisPage(): Promise<boolean> {
       const url = window.location.href;
@@ -47,13 +121,6 @@ export default defineContentScript({
         // Check if current domain matches any enabled site
         for (const site of enabledSites) {
           if (url.includes(site)) {
-            // // Additional URL checks for specific platforms
-            // if (site === 'youtube.com') {
-            //   // YouTube - only Shorts and some watch pages
-            //   return url.includes('/shorts/') || 
-            //          (url.includes('/watch') && url.includes('&list=') && url.includes('shorts'));
-            // }
-            // TikTok and Instagram - all pages
             return true;
           }
         }
@@ -98,7 +165,7 @@ export default defineContentScript({
         type: 'SCROLL_DETECTED',
         timestamp: now
       }).catch((error: any) => {
-        console.log('Could not send scroll message to background:', error);
+        // ignore
       });      
     }
 
@@ -118,15 +185,18 @@ export default defineContentScript({
       timerStartTime = startTime;
       lastTimeUpdate = startTime;
       
-      // Stop brain battery recharge when on tracked sites
-      stopBrainBatteryRecharge();
+      // Start brain battery monitoring for tracked sites
+      startBrainBatteryMonitoring();
       
       // Start interval to update time every second
       timeUpdateInterval = window.setInterval(async () => {
         if (!isTimerRunning) return;
         
-        // Don't track time if lesson is active
+        // Don't track time if lesson is active, but continue when brain-fried overlay is active
+        // (user is still "wasting time" on the platform even if blocked)
         if (lessonManager.isActive()) {
+          // Update lastTimeUpdate to prevent counting lesson time as wasted time
+          lastTimeUpdate = Date.now();
           return;
         }
         
@@ -166,8 +236,8 @@ export default defineContentScript({
         }
       }
       
-      // Start brain battery recharge when not on tracked sites
-      startBrainBatteryRecharge();
+      // Stop brain battery monitoring when not on tracked sites
+      stopBrainBatteryMonitoring();
     }
 
     function pauseTimeTracking() {
@@ -187,8 +257,10 @@ export default defineContentScript({
       timeUpdateInterval = window.setInterval(async () => {
         if (!isTimerRunning) return;
         
-        // Don't track time if lesson is active
+        // Don't track time if lesson is active, but continue when brain-fried overlay is active
         if (lessonManager.isActive()) {
+          // Update lastTimeUpdate to prevent counting lesson time as wasted time
+          lastTimeUpdate = Date.now();
           return;
         }
         
@@ -204,40 +276,6 @@ export default defineContentScript({
           }
         }
       }, TIME_UPDATE_INTERVAL);
-    }
-
-    // Brain battery recharge functions (run when NOT on tracked sites)
-    function startBrainBatteryRecharge() {
-      if (brainRechargeInterval || isTimerRunning) return; // Don't start if already running or on tracked sites
-      
-      lastBatteryUpdate = Date.now();
-      
-      // Start interval to recharge battery every second (like time tracking)
-      brainRechargeInterval = window.setInterval(async () => {
-        if (isTimerRunning) return; // Don't recharge if on tracked sites
-        
-        const now = Date.now();
-        const secondsElapsed = Math.floor((now - lastBatteryUpdate) / 1000);
-        
-        if (secondsElapsed >= 2) {
-          try {
-            const data = await StorageUtils.getStorageData();
-            if (data.brainBattery < 100) {
-              await StorageUtils.incrementBrainBattery(secondsElapsed);
-            }
-            lastBatteryUpdate = now;
-          } catch (error: any) {
-            console.error('Error recharging brain battery:', error);
-          }
-        }
-      }, BATTERY_RECHARGE_INTERVAL);
-    }
-
-    function stopBrainBatteryRecharge() {
-      if (!brainRechargeInterval) return;
-      
-      clearInterval(brainRechargeInterval);
-      brainRechargeInterval = null;
     }
 
     // Handle messages from background script
@@ -292,26 +330,25 @@ export default defineContentScript({
     // Request current timer state from background
     shouldTrackThisPage().then(shouldTrack => {
       if (shouldTrack) {
+        // Start brain battery monitoring immediately for tracked pages
+        startBrainBatteryMonitoring();
+        
         browser.runtime.sendMessage({
           type: 'REQUEST_TIMER_STATE'
         }).catch((error: any) => {
-          console.log('Could not request timer state:', error);
+          // ignore
         });
-      } else {
-        // Start brain battery recharge if this is not a tracked page
-        startBrainBatteryRecharge();
       }
     }).catch((error: any) => {
       console.error('Error checking if should track page:', error);
-      // Default to starting brain battery recharge if check fails
-      startBrainBatteryRecharge();
     });
 
     // Cleanup on page unload
     window.addEventListener('beforeunload', () => {
       stopTimeTracking();
-      stopBrainBatteryRecharge();
+      stopBrainBatteryMonitoring();
       lessonManager.cleanup();
+      brainFriedOverlay.cleanup();
     });
   },
 });

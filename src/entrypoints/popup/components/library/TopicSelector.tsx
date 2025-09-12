@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { THEME_TOPIC_MAP, TOPIC_DESCRIPTIONS } from '../../../../utils/lesson-parser';
+import { THEME_TOPIC_MAP } from '../../../../utils/lessons-index';
 
-type Theme = 'how-to' | 'what-is' | 'why';
+type Theme = string;
 
 interface TopicSelectorProps {
   selectedTheme: Theme;
@@ -17,13 +17,12 @@ export const TopicSelector: React.FC<TopicSelectorProps> = ({ selectedTheme, sel
   const [showArrows, setShowArrows] = useState(false);
   const [canScroll, setCanScroll] = useState({ canScrollLeft: false, canScrollRight: false });
   const scrollRef = useRef<HTMLDivElement>(null);
+  const animRef = useRef<{ rafId: number | null; target: number; velocity: number }>({ rafId: null, target: 0, velocity: 0 });
 
   // Get only topics from the selected theme
   const currentThemeTopics = THEME_TOPIC_MAP[selectedTheme] || [];
 
-  // Removed verbose debug logging for performance
-
-  // FIXED LOGIC: Use GLOBAL topic count for deselection prevention
+  // Use GLOBAL topic count for deselection prevention
   const canDeselectTopic = (topicToCheck: string): boolean => {
     // If this topic is not selected, we can always "toggle" it (i.e., select it)
     if (!selectedTopics.includes(topicToCheck)) {
@@ -33,12 +32,6 @@ export const TopicSelector: React.FC<TopicSelectorProps> = ({ selectedTheme, sel
     // If this topic is selected, check what would happen if we removed it GLOBALLY
     const globalTopicsAfterRemoval = allSelectedTopics.filter(t => t !== topicToCheck);
     const wouldHaveZeroTopicsGlobally = globalTopicsAfterRemoval.length === 0;
-    
-    // Only log when deselection is prevented
-    if (wouldHaveZeroTopicsGlobally) {
-      console.log(`❌ Cannot deselect "${topicToCheck}" - would leave 0 topics globally`);
-    }
-    
     // Prevent deselection only if it would leave us with 0 topics GLOBALLY
     return !wouldHaveZeroTopicsGlobally;
   };
@@ -58,6 +51,8 @@ export const TopicSelector: React.FC<TopicSelectorProps> = ({ selectedTheme, sel
 
     const el = scrollRef.current;
     if (el) {
+      animRef.current.target = el.scrollLeft;
+      animRef.current.velocity = 0;
       el.addEventListener('scroll', handleScroll, { passive: true });
       handleScroll(); // Initial check
     }
@@ -66,6 +61,15 @@ export const TopicSelector: React.FC<TopicSelectorProps> = ({ selectedTheme, sel
       el?.removeEventListener('scroll', handleScroll);
     };
   }, [currentThemeTopics]);
+
+  // Cleanup any pending animation on unmount
+  useEffect(() => {
+    return () => {
+      const rafId = animRef.current.rafId;
+      if (rafId != null) cancelAnimationFrame(rafId);
+      animRef.current.rafId = null;
+    };
+  }, []);
 
   const onMouseDown = (e: React.MouseEvent) => {
     if (!scrollRef.current) return;
@@ -93,6 +97,77 @@ export const TopicSelector: React.FC<TopicSelectorProps> = ({ selectedTheme, sel
     if (!scrollRef.current) return;
     const amount = 132;
     scrollRef.current.scrollBy({ left: dir === 'left' ? -amount : amount, behavior: 'smooth' });
+  };
+
+  // Allow vertical wheel to scroll horizontally with smoothing, but preserve native horizontal swipes
+  const onWheel = (e: React.WheelEvent) => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const { deltaX, deltaY } = e;
+    // If the gesture is primarily horizontal, let the browser handle it for smooth trackpad swipes
+    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+      // Native horizontal scrolling is smooth; do not interfere
+      // Also cancel our custom animation to avoid fighting momentum
+      if (animRef.current.rafId != null) {
+        cancelAnimationFrame(animRef.current.rafId);
+        animRef.current.rafId = null;
+      }
+      animRef.current.target = el.scrollLeft;
+      animRef.current.velocity = 0;
+      return;
+    }
+
+    // Otherwise, map vertical scroll to horizontal
+    if (deltaY !== 0) {
+      e.preventDefault();
+      const maxLeft = el.scrollWidth - el.clientWidth;
+      // Kinetic model: accumulate velocity and apply friction per frame for snappy, smooth motion
+      const SENS = 2.6;     // sensitivity multiplier (higher = faster)
+      const FRICTION = 0.92; // velocity retention per frame
+      const MIN_VEL = 0.3;   // stop threshold
+
+      animRef.current.velocity += deltaY * SENS;
+
+      if (animRef.current.rafId == null) {
+        const tick = () => {
+          const node = scrollRef.current;
+          if (!node) { animRef.current.rafId = null; animRef.current.velocity = 0; return; }
+          let next = node.scrollLeft + animRef.current.velocity;
+          // Clamp to bounds and kill velocity at edges
+          if (next < 0) { next = 0; animRef.current.velocity = 0; }
+          else if (next > maxLeft) { next = maxLeft; animRef.current.velocity = 0; }
+          node.scrollLeft = next;
+          setCanScroll(checkScroll());
+
+          // Apply friction and continue if above threshold
+          animRef.current.velocity *= FRICTION;
+          if (Math.abs(animRef.current.velocity) < MIN_VEL) {
+            animRef.current.velocity = 0;
+            animRef.current.rafId = null;
+            return;
+          }
+          animRef.current.rafId = requestAnimationFrame(tick);
+        };
+        animRef.current.rafId = requestAnimationFrame(tick);
+      }
+    }
+  };
+
+  // Keyboard support for accessibility: arrow keys to scroll
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const amount = 132;
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      el.scrollBy({ left: -amount, behavior: 'smooth' });
+      setCanScroll(checkScroll());
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      el.scrollBy({ left: amount, behavior: 'smooth' });
+      setCanScroll(checkScroll());
+    }
   };
 
   const handleTopicClick = (topic: string) => {
@@ -135,17 +210,23 @@ export const TopicSelector: React.FC<TopicSelectorProps> = ({ selectedTheme, sel
         </svg>
       </button>
 
-      {/* Scrollable topics for current theme only */}
+      {/* Scrollable topics */}
       <div
         ref={scrollRef}
         style={{
-          display: 'flex', gap: '8px', overflowX: 'auto', scrollBehavior: 'smooth', cursor: isDragging ? 'grabbing' : 'grab',
-          userSelect: 'none', maxWidth: '394px', scrollbarWidth: 'none', msOverflowStyle: 'none'
+          display: 'flex', gap: '8px', overflowX: 'auto', overflowY: 'hidden', scrollBehavior: 'smooth', cursor: isDragging ? 'grabbing' : 'grab',
+          userSelect: 'none', maxWidth: '394px', scrollbarWidth: 'none', msOverflowStyle: 'none', outline: 'none'
+
         }}
+        tabIndex={0}
+        role="region"
+        aria-label="Topic selector"
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={endDrag}
         onMouseLeave={endDrag}
+        onWheel={onWheel}
+        onKeyDown={onKeyDown}
       >
         {currentThemeTopics.map((topic) => {
           const isSelected = selectedTopics.includes(topic);
@@ -156,11 +237,7 @@ export const TopicSelector: React.FC<TopicSelectorProps> = ({ selectedTheme, sel
             <div
               key={topic}  
               onClick={() => handleTopicClick(topic)}
-              title={
-                isProtectedTopic
-                  ? 'At least one topic must be selected globally'
-                  : TOPIC_DESCRIPTIONS[topic] || ''
-              }
+              title={isProtectedTopic ? 'At least one topic must be selected globally' : ''}
               style={{
                 minWidth: '120px', width: '120px', height: '100px',
                 backgroundColor: 'white',

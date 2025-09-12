@@ -15,9 +15,15 @@ export const BrainBattery: React.FC<BrainBatteryProps> = ({
 }) => {
   const [showTooltip, setShowTooltip] = useState(false);
   
+  // For display purposes: show 1% for values between 0 < x < 1%, show 0% only when exactly 0%
+  const displayPercentage = percentage === 0 ? 0 : Math.max(1, Math.min(100, Math.floor(percentage)));
+  
+  // For color calculation: use the actual clamped percentage
+  const actualClamped = Math.max(0, Math.min(100, Math.floor(percentage)));
+  
   const getBarColor = () => {
-    if (percentage > 60) return '#4ade80'; // light green
-    if (percentage > 20) return '#fb923c'; // orange
+    if (actualClamped > 60) return '#4ade80'; // light green
+    if (actualClamped > 20) return '#fb923c'; // orange
     return '#ef4444'; // red
   };
   
@@ -78,7 +84,7 @@ export const BrainBattery: React.FC<BrainBatteryProps> = ({
         }}>
           <div style={{
             // Ensure width never goes negative or exceeds the bar
-            width: `${percentage}%`,
+            width: `${actualClamped}%`,
             height: '100%',
             backgroundColor: getBarColor(),
             transition: 'width 0.3s ease'
@@ -95,7 +101,7 @@ export const BrainBattery: React.FC<BrainBatteryProps> = ({
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center'
-          }}>{percentage}%</div>
+          }}>{displayPercentage}%</div>
         </div>
       </div>
       
@@ -118,7 +124,8 @@ export const BrainBattery: React.FC<BrainBatteryProps> = ({
           </div>
           <div>- 1.0/min stay</div>
           <div>- 0.2/scroll</div>
-          <div>+ 0.5/lesson</div>
+          <div>+ 0.5/lesson complete</div>
+          <div>+ 1.0/learn more click</div>
           <div>+ 1.0/min away</div>
         </div>
       )}

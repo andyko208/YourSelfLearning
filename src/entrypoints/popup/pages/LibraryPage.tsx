@@ -3,22 +3,15 @@ import { ThemeSelector } from '../components/library/ThemeSelector';
 import { TopicSelector } from '../components/library/TopicSelector';
 import { StorageUtils } from '../../content/storage-utils';
 import { browser } from '../../../utils/browser-api';
+import { THEME_TOPIC_MAP } from '../../../utils/lessons-index';
 
-type Theme = 'how-to' | 'what-is' | 'why';
+type Theme = string;
 
-// Helper function to calculate all selected topics from theme-based data
-const calculateAllTopics = (selectedTopicsByTheme: Record<string, string[]>): string[] => {
-  const allTopics: string[] = [];
-  Object.values(selectedTopicsByTheme).forEach(topics => {
-    if (Array.isArray(topics)) {
-      allTopics.push(...topics);
-    }
-  });
-  return allTopics;
-};
+const calculateAllTopics = (selectedTopicsByTheme: Record<string, string[]>): string[] =>
+  Object.values(selectedTopicsByTheme).flatMap((t) => (Array.isArray(t) ? t : []));
 
 export const LibraryPage: React.FC = () => {
-  const [selectedTheme, setSelectedTheme] = useState<Theme>('how-to');
+  const [selectedTheme, setSelectedTheme] = useState<Theme>('');
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [allSelectedTopics, setAllSelectedTopics] = useState<string[]>([]);
   const [selectedTopicsByTheme, setSelectedTopicsByTheme] = useState<Record<string, string[]>>({});
@@ -27,15 +20,9 @@ export const LibraryPage: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       const settings = await StorageUtils.getSettings();
-      const theme = (settings as any).selectedTheme ?? 'how-to';
-      const topicsByTheme = (settings as any).selectedTopicsByTheme ?? {
-        'how-to': ['control'],
-        'what-is': [],
-        'why': []
-      };
+      const theme = (settings as any).selectedTheme ?? '';
+      const topicsByTheme = (settings as any).selectedTopicsByTheme ?? {};
       const topics = topicsByTheme[theme] ?? [];
-      
-      // Calculate all topics locally - no storage calls!
       const allTopics = calculateAllTopics(topicsByTheme);
       
       setSelectedTheme(theme);
@@ -51,15 +38,9 @@ export const LibraryPage: React.FC = () => {
       if (changes['xscroll-data']?.newValue?.settings) {
         const updateGlobalTopics = async () => {
           const s = changes['xscroll-data'].newValue.settings;
-          const theme = s?.selectedTheme ?? 'how-to';
-          const topics = s?.selectedTopicsByTheme?.[theme] ?? s?.selectedTopics ?? ['control'];
-          
-          // Calculate all topics locally - no storage calls!
-          const topicsByTheme = s?.selectedTopicsByTheme ?? {
-            'how-to': ['control'],
-            'what-is': [],
-            'why': []
-          };
+          const theme = s?.selectedTheme ?? '';
+          const topics = s?.selectedTopicsByTheme?.[theme] ?? s?.selectedTopics ?? [];
+          const topicsByTheme = s?.selectedTopicsByTheme ?? {};
           const allTopics = calculateAllTopics(topicsByTheme);
           
           setSelectedTheme(theme);
@@ -78,7 +59,6 @@ export const LibraryPage: React.FC = () => {
 
   const handleThemeChange = async (theme: Theme) => {
     await StorageUtils.updateSelectedTheme(theme);
-    // Use local state instead of refetching from storage
     const topics = selectedTopicsByTheme[theme] ?? [];
     setSelectedTheme(theme);
     setSelectedTopics(topics);
@@ -86,23 +66,35 @@ export const LibraryPage: React.FC = () => {
 
   const handleTopicToggle = async (topic: string) => {
     const exists = selectedTopics.includes(topic);
-    // Toggle - UI already prevents deselection of last topic
     const updated = exists ? selectedTopics.filter(t => t !== topic) : [...selectedTopics, topic];
     setSelectedTopics(updated);
     
-    // Update local state first, then persist to storage
     const updatedTopicsByTheme = {
       ...selectedTopicsByTheme,
       [selectedTheme]: updated
     };
     setSelectedTopicsByTheme(updatedTopicsByTheme);
     
-    // Calculate all topics locally - no storage calls!
     const allTopics = calculateAllTopics(updatedTopicsByTheme);
     setAllSelectedTopics(allTopics);
     
-    // Persist to storage
     await StorageUtils.updateSelectedTopics(updated);
+  };
+
+  const handleToggleAllInTheme = async () => {
+    const themeTopics = THEME_TOPIC_MAP[selectedTheme] || [];
+    if (themeTopics.length === 0) return;
+    const allSelected = selectedTopics.length === themeTopics.length;
+    const next = !allSelected
+      ? [...themeTopics]
+      : Math.max(0, allSelectedTopics.length - selectedTopics.length) > 0
+        ? []
+        : [themeTopics[0]];
+    setSelectedTopics(next);
+    const updated = { ...selectedTopicsByTheme, [selectedTheme]: next };
+    setSelectedTopicsByTheme(updated);
+    setAllSelectedTopics(calculateAllTopics(updated));
+    await StorageUtils.updateSelectedTopics(next);
   };
 
   if (loading) {
@@ -121,11 +113,29 @@ export const LibraryPage: React.FC = () => {
       </div>
 
       <div style={{ width: '100%', maxWidth: '440px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#666', margin: '0 0 12px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Topics</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', maxWidth: '440px', justifyContent: 'center', margin: '0 0 12px 0' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#666', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Topics</h2>
+          {(THEME_TOPIC_MAP[selectedTheme]?.length ?? 0) > 0 && (
+            <button
+              onClick={handleToggleAllInTheme}
+              title={selectedTopics.length === (THEME_TOPIC_MAP[selectedTheme]?.length ?? 0) ? 'Deselect all in this theme' : 'Select all in this theme'}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                fontSize: '12px', fontWeight: 700, background: 'transparent',
+                outline: 'none', border: 'none', cursor: 'pointer', color: selectedTopics.length === (THEME_TOPIC_MAP[selectedTheme]?.length ?? 0) ? '#16a34a' : '#111'
+              }}
+            >
+              <span style={{
+                display: 'inline-flex', width: '16px', height: '16px', borderRadius: '50%',
+                backgroundColor: selectedTopics.length === (THEME_TOPIC_MAP[selectedTheme]?.length ?? 0) ? '#16a34a' : '#e5e7eb',
+                color: selectedTopics.length === (THEME_TOPIC_MAP[selectedTheme]?.length ?? 0) ? 'white' : '#374151',
+                alignItems: 'center', justifyContent: 'center', lineHeight: 1, border: '1px solid #9ca3af', cursor: 'pointer'
+              }}>✓</span>
+            </button>
+          )}
+        </div>
         <TopicSelector selectedTheme={selectedTheme} selectedTopics={selectedTopics} allSelectedTopics={allSelectedTopics} onTopicToggle={handleTopicToggle} />
       </div>
     </div>
   );
 };
-
-

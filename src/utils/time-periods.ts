@@ -13,15 +13,22 @@ export function getCurrentTimePeriod(): TimePeriod {
   }
 }
 
+function formatLocalDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export function getTodayDateString(): string {
   const now = new Date();
-  return now.toISOString().split('T')[0];
+  return formatLocalDate(now);
 }
 
 export function getYesterdayDateString(): string {
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
-  return yesterday.toISOString().split('T')[0];
+  return formatLocalDate(yesterday);
 }
 
 export function isSameDay(dateString1: string, dateString2: string): boolean {

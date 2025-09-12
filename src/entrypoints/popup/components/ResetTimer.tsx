@@ -17,11 +17,8 @@ export const ResetTimer: React.FC = () => {
       clearInterval(interval);
     };
   }, []);
-  
-  // Helper function to determine if a specific session should be bolded
-  // Only the current time period should be bolded, all others should be normal weight
+
   const isCurrentTimePeriod = (session: string): boolean => {
-    // Defensive programming: ensure currentSession is valid
     const validSessions = ['morning', 'afternoon', 'night'];
     const validCurrentSession = validSessions.includes(currentSession) ? currentSession : 'morning';
     
@@ -29,7 +26,6 @@ export const ResetTimer: React.FC = () => {
   };
   
   const getSessionDisplayName = (session: string) => {
-    // Explicitly check if this session is the current one
     const shouldBeBold = isCurrentTimePeriod(session);
     const style = shouldBeBold ? { fontWeight: 'bold' as const } : { fontWeight: 'normal' as const };
     

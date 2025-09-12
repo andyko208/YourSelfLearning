@@ -61,7 +61,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigat
       <ResetTimer />
       
       <BrainBattery
-        percentage={Math.floor(brainPercentage)}
+        percentage={brainPercentage}
         scrollCount={scrollCount}
         timeWasted={timeWasted}
         lessonCount={lessonCount}

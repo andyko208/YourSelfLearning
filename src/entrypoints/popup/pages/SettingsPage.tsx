@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { LessonFrequency } from '../components/settings/LessonFrequency';
-import { PlatformSelector } from '../components/settings/PlatformSelector';
+import { PlatformSelector, ALL_PLATFORMS } from '../components/settings/PlatformSelector';
 import { StorageUtils } from '../../content/storage-utils';
 import type { StorageData } from '../../../types/storage';
 
@@ -45,6 +45,15 @@ export const SettingsPage: React.FC = () => {
   const handlePlatformChange = (platforms: string[]) => {
     setSelectedPlatforms(platforms);
     updateSettings({ enabledSites: platforms });
+  };
+
+  const handleToggleAllPlatforms = () => {
+    const all = ALL_PLATFORMS;
+    if (!Array.isArray(all) || all.length === 0) return;
+    const allSelected = selectedPlatforms.length === all.length;
+    const next = allSelected ? [] : [...all];
+    setSelectedPlatforms(next);
+    updateSettings({ enabledSites: next });
   };
 
   if (loading) {
@@ -106,16 +115,37 @@ export const SettingsPage: React.FC = () => {
         flexDirection: 'column',
         alignItems: 'center'
       }}>
-        <h2 style={{
-          fontSize: '16px',
-          fontWeight: '600',
-          color: '#666',
-          margin: '0 0 12px 0',
-          textTransform: 'uppercase',
-          letterSpacing: '0.5px'
-        }}>
-          Platforms
-        </h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', maxWidth: '440px', justifyContent: 'center', margin: '0 0 12px 0' }}>
+          <h2 style={{
+            fontSize: '16px',
+            fontWeight: 600,
+            color: '#666',
+            margin: 0,
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px'
+          }}>
+            Platforms
+          </h2>
+          {ALL_PLATFORMS.length > 0 && (
+            <button
+              onClick={handleToggleAllPlatforms}
+              title={selectedPlatforms.length === ALL_PLATFORMS.length ? 'Deselect all platforms' : 'Select all platforms'}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                fontSize: '12px', fontWeight: 700, background: 'transparent', outline: 'none',
+                border: 'none', cursor: 'pointer', color: selectedPlatforms.length === ALL_PLATFORMS.length ? '#16a34a' : '#111'
+              }}
+            >
+              <span style={{
+                display: 'inline-flex', width: '16px', height: '16px', borderRadius: '50%',
+                backgroundColor: selectedPlatforms.length === ALL_PLATFORMS.length ? '#16a34a' : '#e5e7eb',
+                color: selectedPlatforms.length === ALL_PLATFORMS.length ? 'white' : '#374151',
+                alignItems: 'center', justifyContent: 'center', lineHeight: 1, border: '1px solid #9ca3af'
+              }}>✓</span>
+              {selectedPlatforms.length === ALL_PLATFORMS.length ? '' : ''}
+            </button>
+          )}
+        </div>
         <PlatformSelector
           selectedPlatforms={selectedPlatforms}
           onChange={handlePlatformChange}
