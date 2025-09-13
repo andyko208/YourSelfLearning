@@ -38,10 +38,6 @@ export class LessonOverlay {
     this.lesson = lesson;
     this.callbacks = callbacks;
     
-    // Add debug methods to global window for console testing
-    (window as any).debugBonusTracker = () => StorageUtils.debugBonusTracker();
-    (window as any).resetBonusTracker = () => StorageUtils.resetBonusTracker();
-    
     // Start performance monitoring
     if (this.shouldUseAnimations()) {
       this.startPerformanceMonitoring();
@@ -484,7 +480,7 @@ export class LessonOverlay {
   private async handleCloseClick(): Promise<void> {
     if (this.currentState !== LessonState.AFTER_COUNTDOWN) return;
     
-    console.log(`🎯 Lesson completed! Tracking completion...`);
+    // Track lesson completion for bonus logic
     // Track lesson completion for bonus notification logic
     await StorageUtils.incrementLessonCompletedAndCheckBonus();
     
@@ -550,12 +546,9 @@ export class LessonOverlay {
     
     // Start time bonus countdown only if bonus should be shown
     const shouldShowBonus = await StorageUtils.shouldShowTimeBonusNotification();
-    console.log(`🎯 Lesson overlay: shouldShowBonus=${shouldShowBonus}`);
     if (shouldShowBonus) {
-      console.log(`🎯 Starting time bonus countdown!`);
       this.startTimeBonusCountdown();
     } else {
-      console.log(`🎯 No bonus this lesson`);
       // No bonus notification, so no time bonus available
       this.timeBonusActive = false;
     }
@@ -1308,7 +1301,7 @@ export class LessonOverlay {
           this.performanceMonitor.lowFpsCount++;
           if (this.performanceMonitor.lowFpsCount >= 3) {
             this.performanceMonitor.effectsEnabled = false;
-            console.log('🎬 Disabling advanced effects due to low FPS');
+            // Disable advanced effects due to sustained low FPS
           }
         } else {
           this.performanceMonitor.lowFpsCount = 0;

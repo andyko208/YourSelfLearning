@@ -1,4 +1,4 @@
-import type { StorageData, DailyData, StorageLock } from '../../types/storage';
+import type { StorageData, DailyData, StorageLock } from '../../utils/storage';
 import { 
   getCurrentTimePeriod, 
   getTodayDateString, 
@@ -155,7 +155,6 @@ export class StorageUtils {
             lessonsCompleted: 0,
             nextBonusAt: nextAt
           };
-          console.log(`🎯 Migrated bonusTracker: completed=0, nextAt=${nextAt}`);
           migrated = true;
         }
         if (migrated) {
@@ -283,12 +282,7 @@ export class StorageUtils {
       // Recharge brain battery by +1.0%/minute (convert seconds to minutes)
       const minutesRecharged = seconds / 60;
       const batteryRecharge = minutesRecharged * 0.5;
-      const oldPercentage = data.brainBattery;
       data.brainBattery = Math.max(0, Math.min(100, data.brainBattery + batteryRecharge));
-      
-      // if (batteryRecharge > 0) {
-      //   console.log(`🔋 Brain battery recharged: ${oldPercentage}% → ${data.brainBattery}% (+${batteryRecharge.toFixed(2)}%)`);
-      // }
       
       await browser.storage.local.set({ [STORAGE_KEY]: data });
     }, { lock: 'metrics', opName: 'incrementBrainBattery' });
@@ -317,7 +311,6 @@ export class StorageUtils {
       data.today[period].scrollCount += 1;
       
       // Drain brain battery by 0.2% per scroll
-      const oldBattery = data.brainBattery;
       data.brainBattery = Math.max(0, data.brainBattery - 0.2);
       
       await browser.storage.local.set({ [STORAGE_KEY]: data });
@@ -337,7 +330,6 @@ export class StorageUtils {
       // Drain brain battery by -1.0%/minute (convert seconds to minutes)
       const minutesDrained = seconds / 60;
       const batteryDrain = minutesDrained * 1.0;
-      const oldBattery = data.brainBattery;
       data.brainBattery = Math.max(0, data.brainBattery - batteryDrain);
       
       await browser.storage.local.set({ [STORAGE_KEY]: data });
@@ -561,7 +553,6 @@ export class StorageUtils {
     const data = await this.getStorageData();
     // Check if completing THIS lesson will trigger the bonus (fix off-by-one error)
     const shouldShow = (data.bonusTracker.lessonsCompleted + 1) >= data.bonusTracker.nextBonusAt;
-    console.log(`🎯 Bonus check: completed=${data.bonusTracker.lessonsCompleted}, nextAt=${data.bonusTracker.nextBonusAt}, shouldShow=${shouldShow}`);
     return shouldShow;
   }
 
@@ -575,12 +566,9 @@ export class StorageUtils {
       
       // If we've reached the bonus threshold, reset the counter
       if (data.bonusTracker.lessonsCompleted >= data.bonusTracker.nextBonusAt) {
-        console.log(`🎯 Bonus threshold reached! Resetting counter. Old: ${oldCompleted}→${data.bonusTracker.lessonsCompleted}, nextAt: ${oldNextAt}`);
         data.bonusTracker.lessonsCompleted = 0;
         data.bonusTracker.nextBonusAt = this.getRandomBonusInterval();
-        console.log(`🎯 Reset to: completed=${data.bonusTracker.lessonsCompleted}, nextAt=${data.bonusTracker.nextBonusAt}`);
       } else {
-        console.log(`🎯 Lesson completed: ${oldCompleted}→${data.bonusTracker.lessonsCompleted}, nextAt: ${data.bonusTracker.nextBonusAt}`);
       }
       
       await browser.storage.local.set({ [STORAGE_KEY]: data });
@@ -590,11 +578,7 @@ export class StorageUtils {
   // DEBUG: Helper method to inspect bonus tracker state
   static async debugBonusTracker(): Promise<void> {
     const data = await this.getStorageData();
-    console.log(`🎯 DEBUG Bonus Tracker State:`, {
-      lessonsCompleted: data.bonusTracker.lessonsCompleted,
-      nextBonusAt: data.bonusTracker.nextBonusAt,
-      willShowOnNext: (data.bonusTracker.lessonsCompleted + 1) >= data.bonusTracker.nextBonusAt
-    });
+    // Intentionally silent: retained for backward compatibility
   }
 
   // DEBUG: Force reset bonus tracker for testing
@@ -606,7 +590,6 @@ export class StorageUtils {
         nextBonusAt: 2 // Set to 2 for quick testing
       };
       await browser.storage.local.set({ [STORAGE_KEY]: data });
-      console.log(`🎯 DEBUG: Reset bonus tracker to completed=0, nextAt=2`);
     }, { lock: 'settings', opName: 'resetBonusTracker' });
   }
 

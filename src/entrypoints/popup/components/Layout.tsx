@@ -49,7 +49,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigat
 
   return (
     <div style={{
-      width: '100%',
       height: '100%',
       backgroundColor: 'white',
       position: 'relative',
@@ -57,15 +56,34 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigat
       display: 'flex',
       flexDirection: 'column'
     }}>
-      {/* Fixed positioned components */}
-      <ResetTimer />
-      
-      <BrainBattery
-        percentage={brainPercentage}
-        scrollCount={scrollCount}
-        timeWasted={timeWasted}
-        lessonCount={lessonCount}
-      />
+      {/* Top overlay bar ensures consistent horizontal alignment */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '10px 16px',
+          pointerEvents: 'none',
+          zIndex: 1001
+        }}
+      >
+        <div style={{ pointerEvents: 'auto' }}>
+          <ResetTimer variant="inline" />
+        </div>
+        <div style={{ pointerEvents: 'auto' }}>
+          <BrainBattery
+            variant="inline"
+            percentage={brainPercentage}
+            scrollCount={scrollCount}
+            timeWasted={timeWasted}
+            lessonCount={lessonCount}
+          />
+        </div>
+      </div>
       
       {/* Page content area with consistent spacing */}
       <div style={{
@@ -75,7 +93,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigat
         flexDirection: 'column',
         position: 'relative',
         // Top: clear BrainBattery+ResetTimer (approx 56px), Sides: 16px, Bottom: clear NavigationBar (60px)
-        padding: '64px 16px 72px 16px',
+        padding: '64px 16px 64px 16px',
         minHeight: '0',
         overflowY: 'auto'
       }}>

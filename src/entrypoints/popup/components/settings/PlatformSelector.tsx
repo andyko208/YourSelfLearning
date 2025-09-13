@@ -160,8 +160,9 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
       ref={containerRef}
       style={{
         position: 'relative',
-        width: 'fit-content',
-        maxWidth: '100%',
+        width: '100%',
+        maxWidth: '440px',
+        boxSizing: 'border-box',
         backgroundColor: '#f5f5f5',
         border: '2px solid black',
         borderRadius: '24px',

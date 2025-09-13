@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { LessonFrequency } from '../components/settings/LessonFrequency';
 import { PlatformSelector, ALL_PLATFORMS } from '../components/settings/PlatformSelector';
 import { StorageUtils } from '../../content/storage-utils';
-import type { StorageData } from '../../../types/storage';
+import type { StorageData } from '../../../utils/storage';
 
 export const SettingsPage: React.FC = () => {
   const [lessonFrequency, setLessonFrequency] = useState<number>(3);
@@ -85,18 +85,17 @@ export const SettingsPage: React.FC = () => {
       
       {/* Lesson Frequency Section - Centered like DateSelector */}
       <div style={{
-        width: '100%',
-        maxWidth: '440px', // Match home page content width
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center'
+        alignItems: 'center',
+        width: '100%',
+        maxWidth: '440px', // Match home page content width
       }}>
         <h2 style={{
           fontSize: '16px',
           fontWeight: '600',
           color: '#666',
           margin: '0 0 12px 0',
-          textTransform: 'uppercase',
           letterSpacing: '0.5px'
         }}>
           Lesson Frequency
@@ -121,7 +120,6 @@ export const SettingsPage: React.FC = () => {
             fontWeight: 600,
             color: '#666',
             margin: 0,
-            textTransform: 'uppercase',
             letterSpacing: '0.5px'
           }}>
             Platforms

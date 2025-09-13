@@ -1,4 +1,4 @@
-import type { TimePeriod } from '../types/storage';
+import type { TimePeriod } from './storage';
 
 export function getCurrentTimePeriod(): TimePeriod {
   const now = new Date();

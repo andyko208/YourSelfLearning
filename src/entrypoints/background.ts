@@ -84,7 +84,7 @@ export default defineBackground(() => {
           startTime: activeTimer.startTime
         });
       } catch (error) {
-        console.log('Could not send start message to tab:', error);
+        // Non-critical: ignore failures to notify content script
       }
       
     } else if (!activeTrackedTab && activeTimer) {
@@ -95,7 +95,7 @@ export default defineBackground(() => {
           elapsedTime: Date.now() - activeTimer.startTime
         });
       } catch (error) {
-        console.log('Could not send stop message to tab:', error);
+        // Non-critical: ignore failures to notify content script
       }
       
       activeTimer = null;
@@ -112,7 +112,7 @@ export default defineBackground(() => {
           elapsedTime
         });
       } catch (error) {
-        console.log('Could not send stop message to old tab:', error);
+        // Non-critical: ignore failures to notify content script
       }
       
       // Start new timer
@@ -127,7 +127,7 @@ export default defineBackground(() => {
           startTime: activeTimer.startTime
         });
       } catch (error) {
-        console.log('Could not send start message to new tab:', error);
+        // Non-critical: ignore failures to notify content script
       }
     }
   }
@@ -225,7 +225,7 @@ export default defineBackground(() => {
             type: 'PAUSE_TIMER'
           });
         } catch (error) {
-          console.log('Could not send pause message:', error);
+          // Non-critical: ignore failures to notify content script
         }
       }
       

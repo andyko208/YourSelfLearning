@@ -21,7 +21,9 @@ export const LessonFrequency: React.FC<LessonFrequencyProps> = ({ value, onChang
       border: '2px solid black',
       borderRadius: '12px',
       padding: '4px',
-      width: 'fit-content'
+      width: '100%',
+      maxWidth: '440px',
+      boxSizing: 'border-box'
     }}>
       {frequencyOptions.map((option) => {
         const isSelected = value === option.value;
@@ -39,14 +41,13 @@ export const LessonFrequency: React.FC<LessonFrequencyProps> = ({ value, onChang
               fontWeight: isSelected ? '600' : '500',
               color: 'black',
               cursor: 'pointer',
-              transition: 'all 0.1s ease',
               outline: 'none',
               minWidth: '110px',
               boxShadow: isSelected ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
             }}
             onMouseEnter={(e) => {
               if (!isSelected) {
-                e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.5)';
+                e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)';
               }
             }}
             onMouseLeave={(e) => {

@@ -105,16 +105,17 @@ export const LibraryPage: React.FC = () => {
 
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', width: '100%', minHeight: '100%', gap: '12px'
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'flex-start', width: '100%', minHeight: '100%', gap: '12px'
     }}>
       <div style={{ width: '100%', maxWidth: '440px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#666', margin: '0 0 12px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Theme</h2>
+        <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#666', margin: '0 0 12px 0', letterSpacing: '0.5px' }}>Theme</h2>
         <ThemeSelector selectedTheme={selectedTheme} onThemeChange={handleThemeChange} />
       </div>
 
       <div style={{ width: '100%', maxWidth: '440px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', maxWidth: '440px', justifyContent: 'center', margin: '0 0 12px 0' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#666', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Topics</h2>
+          <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#666', margin: 0, letterSpacing: '0.5px' }}>Topics</h2>
           {(THEME_TOPIC_MAP[selectedTheme]?.length ?? 0) > 0 && (
             <button
               onClick={handleToggleAllInTheme}

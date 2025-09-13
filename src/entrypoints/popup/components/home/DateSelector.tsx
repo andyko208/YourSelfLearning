@@ -14,44 +14,46 @@ export const DateSelector: React.FC<DateSelectorProps> = ({ selectedDate, onDate
     onDateChange(date);
     // Blur to avoid persistent default focus ring after mouse clicks
     e?.currentTarget?.blur();
-    console.log(`Date changed to ${date}`);
   };
+  const isSelected = selectedDate === 'today';
   return (
     <div style={{
       display: 'flex',
-      gap: '0',
-      margin: '0 0 16px 0',
-      backgroundColor: 'white',
-      border: '3px solid black',
-      borderRadius: '8px',
-      overflow: 'hidden',
-      boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)',
-      width: '100%'
+      gap: '8px',
+      justifyContent: 'center',
+      backgroundColor: '#f5f5f5',
+      border: '2px solid black',
+      borderRadius: '12px',
+      padding: '4px',
+      width: '100%',
+      maxWidth: '440px',
+      boxSizing: 'border-box'
     }}>
       <button
         onClick={(e) => handleDateChange('today', e)}
         style={{
           flex: 1,
-          padding: '10px 20px',
-          border: 'none',
-          backgroundColor: selectedDate === 'today' ? '#e0e0e0' : 'white',
-          color: 'black',
+          height: '36px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: isSelected ? 'white' : 'transparent',
+          border: isSelected ? '2px solid black' : 'none',
+          borderRadius: '12px',
+          padding: '0 20px',
           fontSize: '14px',
-          fontWeight: 'normal',
+          fontWeight: isSelected ? '600' : '500',
+          color: 'black',
           cursor: 'pointer',
-          transition: 'all 0.2s ease',
-          fontFamily: 'system-ui, -apple-system, sans-serif',
-          borderRight: '2px solid black'
+          outline: 'none',
+          transition: 'all 0.1s ease',
+          boxShadow: isSelected ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
         }}
         onMouseEnter={(e) => {
-          if (selectedDate !== 'today') {
-            e.currentTarget.style.backgroundColor = '#f5f5f5';
-          }
+          if (!isSelected) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.5)';
         }}
         onMouseLeave={(e) => {
-          if (selectedDate !== 'today') {
-            e.currentTarget.style.backgroundColor = 'white';
-          }
+          if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
         }}
       >
         Today
@@ -60,27 +62,30 @@ export const DateSelector: React.FC<DateSelectorProps> = ({ selectedDate, onDate
         onClick={(e) => handleDateChange('yesterday', e)}
         style={{
           flex: 1,
-          padding: '10px 20px',
-          border: 'none',
-          backgroundColor: selectedDate === 'yesterday' ? '#e0e0e0' : 'white',
-          color: 'black',
+          height: '36px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: !isSelected ? 'white' : 'transparent',
+          border: !isSelected ? '2px solid black' : 'none',
+          borderRadius: '12px',
+          padding: '0 20px',
           fontSize: '14px',
-          fontWeight: 'normal',
+          fontWeight: !isSelected ? '600' : '500',
+          color: 'black',
           cursor: 'pointer',
-          transition: 'all 0.2s ease',
-          fontFamily: 'system-ui, -apple-system, sans-serif'
-        }}
-        onMouseEnter={(e) => {
-          if (selectedDate !== 'yesterday') {
-            e.currentTarget.style.backgroundColor = '#f5f5f5';
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (selectedDate !== 'yesterday') {
-            e.currentTarget.style.backgroundColor = 'white';
-          }
-        }}
-      >
+          transition: 'all 0.15s ease-out',
+          outline: 'none',
+          minWidth: '110px',
+          boxShadow: !isSelected ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
+          }}
+            onMouseEnter={(e) => {
+              if (isSelected) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.5)';
+            }}
+            onMouseLeave={(e) => {
+              if (isSelected) e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+          >
         Yesterday
       </button>
     </div>

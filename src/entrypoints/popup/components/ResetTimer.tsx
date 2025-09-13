@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { getTimeUntilMidnight } from '../utils/formatters';
+import { getTimeUntilMidnight } from '../../../utils/formatters';
 import { getCurrentTimePeriod } from '../../../utils/time-periods';
 
-export const ResetTimer: React.FC = () => {
+interface ResetTimerProps {
+  variant?: 'absolute' | 'inline';
+}
+
+export const ResetTimer: React.FC<ResetTimerProps> = ({ variant = 'absolute' }) => {
   const [timeLeft, setTimeLeft] = useState(getTimeUntilMidnight());
   const [showTooltip, setShowTooltip] = useState(false);
   const [currentSession, setCurrentSession] = useState(getCurrentTimePeriod());
@@ -37,11 +41,14 @@ export const ResetTimer: React.FC = () => {
     }
   };
   
+  const isAbsolute = variant === 'absolute';
+
   return (
     <div 
       style={{
-        position: 'absolute',
-        left: '20px',
+        position: isAbsolute ? 'absolute' : 'relative',
+        top: isAbsolute ? '10px' : undefined,
+        left: isAbsolute ? '20px' : undefined,
         height: '20px',
         fontSize: '12px',
         fontWeight: 'bold',

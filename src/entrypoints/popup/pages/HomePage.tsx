@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { MetricSlot } from '../components/home/MetricSlot';
 import { DateSelector } from '../components/home/DateSelector';
-import { formatTime, formatScrollCount, formatLessonCount } from '../utils/formatters';
+import { formatTime, formatScrollCount, formatLessonCount } from '../../../utils/formatters';
 import { StorageUtils } from '../../content/storage-utils';
 import { browser } from '../../../utils/browser-api';
-import type { PeriodData } from '../../../types/storage';
+import type { PeriodData } from '../../../utils/storage';
 
 export const HomePage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<'today' | 'yesterday'>('today');
@@ -58,8 +58,10 @@ export const HomePage: React.FC = () => {
     // Load initial data for selected date
     loadDataForDate(selectedDate);
     
+    // Listen for storage changes and update UI (only for "today")
     const handleStorageChange = async (changes: any) => {
       if (changes['xscroll-data']) {
+        // Only update metrics if "today" is selected
         if (selectedDate === 'today') {
           await loadDataForDate('today');
         }
@@ -75,32 +77,39 @@ export const HomePage: React.FC = () => {
 
   return (
     <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'stretch',
-        justifyContent: 'flex-start', // Allow content to flow from top
-        width: '100%',
-        minHeight: '100%',
-        gap: '12px' // Consistent spacing between sections
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'flex-start', width: '100%', minHeight: '100%', gap: '12px'
       }}>
+        <h2 style={{
+          fontSize: '16px',
+          fontWeight: '600',
+          color: '#666',
+          margin: '0 0 12px 0',
+          letterSpacing: '0.5px'
+        }}>
+           YourSelfLearning
+        </h2>
         {/* Date Selector */}
-        <DateSelector 
-          selectedDate={selectedDate} 
-          onDateChange={handleDateChange} 
-        />
+        <div style={{ width: '100%', maxWidth: '440px', display: 'flex', flexDirection: 'column', alignItems: 'center', boxSizing: 'border-box' }}>
+          <DateSelector 
+            selectedDate={selectedDate} 
+            onDateChange={handleDateChange} 
+          />
+        </div>
         
         {/* Normal slot machine panel - always show */}
         <div style={{
+          width: '100%',
+          maxWidth: '440px',
           backgroundColor: '#f5f5f5',
-          border: '3px solid black',
+          border: '2px solid black',
           borderRadius: '16px',
           padding: '20px',
           display: 'grid',
           gridTemplateColumns: 'repeat(3, 1fr)',
           gap: '12px',
           alignItems: 'stretch',
-          width: '100%',
-          boxSizing: 'border-box',
+          boxSizing: 'border-box'
         }}>
           <MetricSlot
             type="scroll"

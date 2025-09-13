@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { formatTime, formatTimeClean, formatScrollCount, formatLessonCount } from '../../utils/formatters';
-import type { PeriodData } from '../../../../types/storage';
+import { formatTime, formatTimeClean, formatScrollCount, formatLessonCount } from '../../../../utils/formatters';
+import type { PeriodData } from '../../../../utils/storage';
 
 interface MetricSlotProps {
   type: 'scroll' | 'time' | 'lesson';
@@ -79,24 +79,20 @@ export const MetricSlot: React.FC<MetricSlotProps> = ({
   return (
     <div 
       style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        padding: '16px',
-        border: '3px solid black',
-        borderRadius: '12px',
-        backgroundColor: isBatteryDead ? '#2a2a2a' : 'white',
         width: '100%',
-        minHeight: '148px',
-        justifyContent: 'center',
+        backgroundColor: isBatteryDead ? '#2a2a2a' : 'white',
+        border: '3px solid black',
+        borderRadius: '16px', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        cursor: 'pointer',
+        opacity: isBatteryDead ? 0.6 : 1,
+        padding: '14px',
+        minHeight: '120px',
         gap: '12px',
         boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)',
-        cursor: 'pointer',
         position: 'relative',
         boxSizing: 'border-box',
-        opacity: isBatteryDead ? 0.6 : 1,
         filter: isBatteryDead ? 'grayscale(0.8)' : 'none',
-        transition: 'all 0.3s ease'
       }}
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
@@ -110,7 +106,7 @@ export const MetricSlot: React.FC<MetricSlotProps> = ({
         gap: '8px'
       }}>
         <div style={{
-          fontSize: '24px',
+          fontSize: '22px',
           fontWeight: 'bold',
           textAlign: 'center',
           color: isBatteryDead ? '#ff4444' : 'red',
@@ -139,7 +135,7 @@ export const MetricSlot: React.FC<MetricSlotProps> = ({
           transform: 'translateX(-50%)',
           backgroundColor: 'white',
           border: '2px solid black',
-          borderRadius: '8px',
+          borderRadius: '12px',
           padding: '12px',
           fontSize: '12px',
           whiteSpace: 'nowrap',

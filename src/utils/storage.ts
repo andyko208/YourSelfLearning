@@ -45,3 +45,4 @@ export interface StorageLock {
   lockTime: number;
   lockId: string;
 }
+
