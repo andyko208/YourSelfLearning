@@ -1,4 +1,5 @@
 import type { LessonWithShuffledAnswers } from '../../utils/lesson-parser';
+import { browser } from '../../utils/browser-api';
 import { StorageUtils } from './storage-utils';
 
 export enum LessonState {
@@ -30,8 +31,6 @@ export class LessonOverlay {
   };
   
   // Animation state
-  private answerSelectedTime: number = 0;
-  private timeBonusActive: boolean = true;
   private holdToCloseTimer: number | null = null;
 
   constructor(lesson: LessonWithShuffledAnswers, callbacks: LessonOverlayCallbacks) {
@@ -268,6 +267,28 @@ export class LessonOverlay {
               line-height: 1.5 !important;
               font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
             ">${this.lesson.explanation}</p>
+            <div class="lesson-reference" style="
+              display: flex !important;
+              flex-direction: column !important;
+              gap: 6px !important;
+              align-items: center !important;
+              margin-bottom: 20px !important;
+              word-break: break-word !important;
+            ">
+              <span class="reference-label" style="
+                font-size: 13px !important;
+                letter-spacing: 0.5px !important;
+                text-transform: uppercase !important;
+                color: #6c757d !important;
+              ">Reference</span>
+              <a href="${this.lesson.reference}" target="_blank" rel="noopener noreferrer" class="reference-link" style="
+                font-size: 15px !important;
+                color: #0d6efd !important;
+                text-decoration: underline !important;
+                text-align: center !important;
+                max-width: 100% !important;
+              ">${this.lesson.reference}</a>
+            </div>
             <div class="lesson-actions" style="
               display: flex !important;
               justify-content: center !important;
@@ -275,88 +296,27 @@ export class LessonOverlay {
               gap: 20px !important;
               flex-wrap: wrap !important;
             ">
-              <div class="learn-more-wrapper" style="
-                position: relative !important;
-                display: inline-block !important;
+              <button type="button" class="back-button" aria-label="Go back to your previous tab" style="
+                background: linear-gradient(145deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.08)) !important;
+                color: #000000 !important;
+                border: 2px solid rgba(0, 0, 0, 0.08) !important;
+                padding: 14px 28px !important;
+                border-radius: 12px !important;
+                font-weight: 700 !important;
+                font-size: 15px !important;
+                cursor: pointer !important;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                gap: 10px !important;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
+                min-width: 200px !important;
+                justify-content: center !important;
               ">
-                <!-- Time Bonus Notification -->
-                <div class="time-bonus-notification" style="
-                  position: absolute !important;
-                  bottom: -45px !important;
-                  left: 50% !important;
-                  transform: translateX(-50%) !important;
-                  background: #000000 !important;
-                  color: #ffffff !important;
-                  padding: 6px 12px !important;
-                  border-radius: 20px !important;
-                  font-size: 13px !important;
-                  font-weight: 700 !important;
-                  white-space: nowrap !important;
-                  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
-                  border: 2px solid #333333 !important;
-                  opacity: 0 !important;
-                  transition: opacity 0.3s ease !important;
-                  z-index: 10 !important;
-                  display: flex !important;
-                  align-items: center !important;
-                  gap: 6px !important;
-                ">
-                  <span style="font-size: 16px !important;">⚡</span>
-                  <span class="bonus-text">QUICK CLICK: +2% Battery</span>
-                  <span class="bonus-timer" style="
-                    background: rgba(255, 255, 255, 0.2) !important;
-                    padding: 2px 6px !important;
-                    border-radius: 10px !important;
-                    font-size: 12px !important;
-                    min-width: 20px !important;
-                    text-align: center !important;
-                  ">3</span>
-                </div>
-                
-                <a href="${this.lesson.reference}" target="_blank" class="learn-more-btn" aria-label="Learn more about this topic. Click within 3 seconds for bonus brain battery." style="
-                  background: linear-gradient(145deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.08)) !important;
-                  color: #000000 !important;
-                  text-decoration: none !important;
-                  padding: 14px 28px !important;
-                  border-radius: 12px !important;
-                  border: 2px solid rgba(0, 0, 0, 0.08) !important;
-                  font-weight: 700 !important;
-                  font-size: 15px !important;
-                  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-                  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-                  position: relative !important;
-                  overflow: hidden !important;
-                  display: inline-flex !important;
-                  align-items: center !important;
-                  gap: 8px !important;
-                  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
-                  transform: scale(1) !important;
-                  min-width: 160px !important;
-                  justify-content: center !important;
-                ">
-                  <span class="learn-more-text" style="
-                    position: relative !important;
-                    z-index: 2 !important;
-                  ">Learn More</span>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="
-                    position: relative !important;
-                    z-index: 2 !important;
-                    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-                  ">
-                    <path d="M7 7h10v10"/>
-                    <path d="M7 17L17 7"/>
-                  </svg>
-                  <span class="learn-more-shimmer" style="
-                    position: absolute !important;
-                    top: 0 !important;
-                    left: -100% !important;
-                    width: 100% !important;
-                    height: 100% !important;
-                    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent) !important;
-                    animation: shimmer 3s infinite !important;
-                  "></span>
-                </a>
-              </div>
+                <span class="back-button-icon" aria-hidden="true" style="font-size: 18px !important;">↩︎</span>
+                <span class="back-button-text">Back to previous tab</span>
+              </button>
               <button class="countdown-button" disabled style="
                 background: linear-gradient(145deg, rgba(0, 0, 0, 0.03), rgba(0, 0, 0, 0.06)) !important;
                 color: rgba(0, 0, 0, 0.4) !important;
@@ -447,11 +407,10 @@ export class LessonOverlay {
       closeButton.addEventListener('click', originalClickHandler);
     }
     
-    // Add Learn More button enhanced interactions
-    const learnMoreBtn = this.overlay.querySelector('.learn-more-btn') as HTMLAnchorElement;
-    const learnMoreWrapper = this.overlay.querySelector('.learn-more-wrapper') as HTMLElement;
-    if (learnMoreBtn && learnMoreWrapper) {
-      this.setupLearnMoreInteractions(learnMoreBtn, learnMoreWrapper);
+    // Add back button interactions
+    const backButton = this.overlay.querySelector('.back-button') as HTMLButtonElement;
+    if (backButton) {
+      this.setupBackButton(backButton);
     }
   }
 
@@ -479,11 +438,32 @@ export class LessonOverlay {
    */
   private async handleCloseClick(): Promise<void> {
     if (this.currentState !== LessonState.AFTER_COUNTDOWN) return;
-    
-    // Track lesson completion for bonus logic
-    // Track lesson completion for bonus notification logic
-    await StorageUtils.incrementLessonCompletedAndCheckBonus();
-    
+    await this.finalizeLessonAndClose();
+  }
+
+  private async handleBackNavigation(): Promise<void> {
+    if (!this.overlay || this.currentState === LessonState.BEGIN) {
+      return;
+    }
+
+    try {
+      await browser.runtime.sendMessage({
+        type: 'NAVIGATE_TO_PREVIOUS_TAB'
+      });
+    } catch (error) {
+      console.error('Failed to request previous tab navigation:', error);
+    }
+  }
+
+  private async finalizeLessonAndClose(): Promise<void> {
+    if (!this.overlay) return;
+
+    try {
+      await StorageUtils.incrementLessonCompletedAndCheckBonus();
+    } catch (error) {
+      console.error('Error updating lesson completion bonus:', error);
+    }
+
     this.callbacks.onLessonComplete();
     this.cleanup();
   }
@@ -541,18 +521,6 @@ export class LessonOverlay {
       return;
     }
     
-    // Track answer selection time for time bonus
-    this.answerSelectedTime = Date.now();
-    
-    // Start time bonus countdown only if bonus should be shown
-    const shouldShowBonus = await StorageUtils.shouldShowTimeBonusNotification();
-    if (shouldShowBonus) {
-      this.startTimeBonusCountdown();
-    } else {
-      // No bonus notification, so no time bonus available
-      this.timeBonusActive = false;
-    }
-
     // Disable all answer buttons
     const answerButtons = this.overlay?.querySelectorAll('.lesson-answer');
     answerButtons?.forEach(button => {
@@ -594,13 +562,13 @@ export class LessonOverlay {
       explanation.style.setProperty('transform', 'translateY(20px)', 'important');
       
       // Ensure all child elements are visible and properly styled
-      const learnMoreBtn = explanation.querySelector('.learn-more-btn') as HTMLElement;
+      const backButton = explanation.querySelector('.back-button') as HTMLElement;
       const countdownButton = explanation.querySelector('.countdown-button') as HTMLElement;
       
-      if (learnMoreBtn) {
-        learnMoreBtn.style.setProperty('display', 'inline-flex', 'important');
-        learnMoreBtn.style.setProperty('visibility', 'visible', 'important');
-        learnMoreBtn.style.setProperty('opacity', '1', 'important');
+      if (backButton) {
+        backButton.style.setProperty('display', 'inline-flex', 'important');
+        backButton.style.setProperty('visibility', 'visible', 'important');
+        backButton.style.setProperty('opacity', '1', 'important');
       }
       
       if (countdownButton) {
@@ -616,8 +584,8 @@ export class LessonOverlay {
         explanation.style.setProperty('transform', 'translateY(0)', 'important');
         
         // Double-check child elements are still visible after animation
-        if (learnMoreBtn) {
-          learnMoreBtn.style.setProperty('opacity', '1', 'important');
+        if (backButton) {
+          backButton.style.setProperty('opacity', '1', 'important');
         }
         if (countdownButton) {
           countdownButton.style.setProperty('opacity', '0.7', 'important');
@@ -684,12 +652,6 @@ export class LessonOverlay {
       }, 400);
     }
     
-    // Make Learn More button prominent with subtle animation
-    const learnMoreBtn = this.overlay?.querySelector('.learn-more-btn') as HTMLAnchorElement;
-    if (learnMoreBtn) {
-      learnMoreBtn.style.animation = 'none !important';
-      learnMoreBtn.style.transform = 'scale(1) !important';
-    }
   }
 
   /**
@@ -1231,8 +1193,6 @@ export class LessonOverlay {
     
     this.overlay = null;
     this.selectedAnswer = null;
-    this.answerSelectedTime = 0;
-    this.timeBonusActive = true;
   }
 
   /**
@@ -1319,163 +1279,42 @@ export class LessonOverlay {
   }
   
   /**
-   * Check if advanced effects should be enabled
+   * Setup enhanced back button interactions
    */
-  private shouldEnableEffects(): boolean {
-    return this.performanceMonitor.effectsEnabled && this.shouldUseAnimations();
-  }
-  
-  /**
-   * Setup enhanced Learn More button interactions
-   */
-  private setupLearnMoreInteractions(btn: HTMLAnchorElement, wrapper: HTMLElement): void {
-    // Click handler with time bonus check
-    btn.addEventListener('click', async (e) => {
-      const clickTime = Date.now();
-      const timeSinceAnswer = clickTime - this.answerSelectedTime;
-      const fastClick = timeSinceAnswer <= 3000; // Within 3 seconds
-      
-      // Show gold burst for fast clicks
-      if (fastClick && this.shouldEnableEffects()) {
-        this.showGoldBurst(btn);
-        this.announceToScreenReader('Fast click! You earned 2% brain battery bonus.');
-      } else if (fastClick) {
-        this.announceToScreenReader('Fast click! You earned 2% brain battery bonus.');
-      }
-      
-      try {
-        await StorageUtils.rewardForLearnMore(fastClick);
-      } catch (error) {
-        console.error('Error rewarding learn more click:', error);
-      }
-    });
-    
-    // Enhanced hover interactions with delicious gradient
-    btn.addEventListener('mouseenter', () => {
-      // Enhanced gradient on hover - more pronounced and inviting
-      btn.style.background = 'linear-gradient(145deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.18)) !important';
-      btn.style.transform = 'scale(1.02) translateY(-1px) !important';
-      btn.style.boxShadow = '0 3px 10px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important';
-      btn.style.borderColor = 'rgba(0, 0, 0, 0.12) !important';
-      const arrow = btn.querySelector('svg');
-      if (arrow) {
-        (arrow as SVGElement).style.transform = 'translate(2px, -2px) !important';
-      }
-    });
-    
-    btn.addEventListener('mouseleave', () => {
-      // Reset to original gradient background
-      btn.style.background = 'linear-gradient(145deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.08)) !important';
-      btn.style.transform = 'scale(1) !important';
-      btn.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5) !important';
-      btn.style.borderColor = 'rgba(0, 0, 0, 0.08) !important';
-      const arrow = btn.querySelector('svg');
-      if (arrow) {
-        (arrow as SVGElement).style.transform = 'translate(0, 0) !important';
-      }
-    });
-  }
-  
-  /**
-   * Show gold burst animation for fast clicks
-   */
-  private showGoldBurst(element: HTMLElement): void {
-    const burst = document.createElement('div');
-    burst.style.cssText = `
-      position: absolute !important;
-      top: 50% !important;
-      left: 50% !important;
-      width: 100px !important;
-      height: 100px !important;
-      background: radial-gradient(circle, rgba(0, 0, 0, 0.8) 0%, transparent 70%) !important;
-      transform: translate(-50%, -50%) scale(0) rotate(0deg) !important;
-      pointer-events: none !important;
-      z-index: 10 !important;
-      animation: blackBurst 0.6s ease-out forwards !important;
-    `;
-    
-    element.appendChild(burst);
-    setTimeout(() => burst.remove(), 600);
-  }
-  
-  /**
-   * Show sparkle effect
-   */
-  private showSparkle(element: HTMLElement): void {
-    const sparkle = document.createElement('div');
-    sparkle.className = 'xscroll-sparkle';
-    sparkle.innerHTML = '✨';
-    sparkle.style.cssText = `
-      position: absolute !important;
-      top: -10px !important;
-      right: -10px !important;
-      font-size: 24px !important;
-      animation: sparkleGlint 0.6s ease-out forwards !important;
-      pointer-events: none !important;
-      z-index: 10 !important;
-    `;
-    
-    element.appendChild(sparkle);
-    setTimeout(() => sparkle.remove(), 600);
-  }
-  
-  
-  /**
-   * Start time bonus countdown
-   */
-  private startTimeBonusCountdown(): void {
-    const timeBonusNotification = this.overlay?.querySelector('.time-bonus-notification') as HTMLElement;
-    const bonusTimer = this.overlay?.querySelector('.bonus-timer') as HTMLElement;
-    
-    // Show the notification
-    if (timeBonusNotification) {
-      timeBonusNotification.style.opacity = '1';
-      
-      // Animate notification entrance with bounce
-      timeBonusNotification.animate([
-        { transform: 'translateX(-50%) translateY(-10px) scale(0.8)', opacity: 0 },
-        { transform: 'translateX(-50%) translateY(0) scale(1.1)', opacity: 1 },
-        { transform: 'translateX(-50%) translateY(0) scale(1)', opacity: 1 }
-      ], {
-        duration: 400,
-        easing: 'cubic-bezier(0.68, -0.55, 0.265, 1.55)'
-      });
-      
-      // Add continuous pulse animation
-      setTimeout(() => {
-        timeBonusNotification.style.animation = 'bonusNotificationPulse 1s ease-in-out infinite !important';
-      }, 400);
-    }
-    
-    
-    // Countdown timer for notification
-    let timeLeft = 3;
-    const countdownInterval = setInterval(() => {
-      timeLeft--;
-      if (bonusTimer) {
-        bonusTimer.textContent = timeLeft.toString();
-        
-        // Pulse animation on timer update
-        bonusTimer.animate([
-          { transform: 'scale(1)' },
-          { transform: 'scale(1.2)' },
-          { transform: 'scale(1)' }
-        ], {
-          duration: 200,
-          easing: 'ease-in-out'
-        });
-      }
-      
-      if (timeLeft <= 0) {
-        clearInterval(countdownInterval);
-        this.timeBonusActive = false;
-        
-        // Hide notification with fade out
-        if (timeBonusNotification) {
-          timeBonusNotification.style.opacity = '0';
+  private setupBackButton(button: HTMLButtonElement): void {
+    const applyHoverState = () => {
+      button.style.background = 'linear-gradient(145deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.18)) !important';
+      button.style.transform = 'scale(1.02) translateY(-1px) !important';
+      button.style.boxShadow = '0 3px 10px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important';
+      button.style.borderColor = 'rgba(0, 0, 0, 0.12) !important';
+    };
+
+    const resetHoverState = () => {
+      button.style.background = 'linear-gradient(145deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.08)) !important';
+      button.style.transform = 'scale(1) !important';
+      button.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5) !important';
+      button.style.borderColor = 'rgba(0, 0, 0, 0.08) !important';
+    };
+
+    button.addEventListener('mouseenter', applyHoverState);
+    button.addEventListener('focus', applyHoverState);
+    button.addEventListener('mouseleave', resetHoverState);
+    button.addEventListener('blur', resetHoverState);
+
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      if (button.disabled) return;
+      button.disabled = true;
+      button.style.cursor = 'wait';
+      this.handleBackNavigation().finally(() => {
+        if (!this.overlay) {
+          return;
         }
-      }
-    }, 1000);
+        button.disabled = false;
+        button.style.cursor = 'pointer';
+        resetHoverState();
+      });
+    });
   }
   
   /**

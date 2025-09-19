@@ -91,6 +91,8 @@ export const SettingsPage: React.FC = () => {
         width: '100%',
         maxWidth: '440px', // Match home page content width
       }}>
+        <img src="https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExZWZmbTc4ZzB6NzNtdWVkYTN3amIwYTNkOWR3cmU0cnlyOTAydHJzMiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/yr7n0u3qzO9nG/giphy.gif" alt="Funny GIF" />
+
         <h2 style={{
           fontSize: '16px',
           fontWeight: '600',
@@ -98,7 +100,7 @@ export const SettingsPage: React.FC = () => {
           margin: '0 0 12px 0',
           letterSpacing: '0.5px'
         }}>
-          Lesson Frequency
+          Block Content
         </h2>
         <LessonFrequency
           value={lessonFrequency}

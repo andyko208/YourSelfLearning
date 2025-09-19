@@ -30,6 +30,7 @@ export interface StorageData {
     lessonsCompleted: number;
     nextBonusAt: number;
   };
+  recentTabs: VisitedTabEntry[];
 }
 
 export type TimePeriod = 'morning' | 'afternoon' | 'night';
@@ -40,9 +41,14 @@ export interface TimerState {
   tabId: number;
 }
 
+export interface VisitedTabEntry {
+  tabId: number;
+  url: string;
+  lastActiveAt: number;
+}
+
 export interface StorageLock {
   locked: boolean;
   lockTime: number;
   lockId: string;
 }
-

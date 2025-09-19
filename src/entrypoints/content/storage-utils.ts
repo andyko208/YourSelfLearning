@@ -1,4 +1,4 @@
-import type { StorageData, DailyData, StorageLock } from '../../utils/storage';
+import type { StorageData, DailyData, StorageLock, VisitedTabEntry } from '../../utils/storage';
 import { 
   getCurrentTimePeriod, 
   getTodayDateString, 
@@ -14,6 +14,7 @@ const STORAGE_KEY = 'xscroll-data';
 // Use separate lock namespaces to reduce contention between metrics and settings
 const LOCK_KEY_METRICS = 'xscroll-lock-metrics';
 const LOCK_KEY_SETTINGS = 'xscroll-lock-settings';
+const RECENT_TAB_LIMIT = 8;
 
 type LockNamespace = 'metrics' | 'settings';
 
@@ -196,6 +197,12 @@ export class StorageUtils {
           // Non-fatal; continue
         }
       }
+
+      // Ensure recent tab history exists
+      if (!Array.isArray((data as any).recentTabs)) {
+        (data as any).recentTabs = [];
+        await browser.storage.local.set({ [STORAGE_KEY]: data });
+      }
       
       return data;
     } catch (error) {
@@ -241,7 +248,8 @@ export class StorageUtils {
       bonusTracker: {
         lessonsCompleted: 0,
         nextBonusAt: this.getRandomBonusInterval() // Random interval between 2-5 lessons
-      }
+      },
+      recentTabs: []
     };
   }
   
@@ -261,7 +269,8 @@ export class StorageUtils {
       bonusTracker: {
         lessonsCompleted: 0,
         nextBonusAt: this.getRandomBonusInterval() // Reset bonus tracking daily
-      }
+      },
+      recentTabs: data.recentTabs ?? []
     };
     
     await browser.storage.local.set({ [STORAGE_KEY]: newData });
@@ -286,18 +295,6 @@ export class StorageUtils {
       
       await browser.storage.local.set({ [STORAGE_KEY]: data });
     }, { lock: 'metrics', opName: 'incrementBrainBattery' });
-  }
-
-  static async rewardForLearnMore(fastClick: boolean = false): Promise<void> {
-    await this.withLock(async () => {
-      const data = await this.getStorageData();
-      
-      // Reward +2% for fast clicks (within 3 seconds), +1% for normal clicks
-      const reward = fastClick ? 2 : 1;
-      data.brainBattery = Math.max(0, Math.min(100, data.brainBattery + reward));
-      
-      await browser.storage.local.set({ [STORAGE_KEY]: data });
-    }, { lock: 'metrics', opName: 'rewardForLearnMore' });
   }
 
   static async incrementScrollCount(): Promise<void> {
@@ -334,6 +331,58 @@ export class StorageUtils {
       
       await browser.storage.local.set({ [STORAGE_KEY]: data });
     }, { lock: 'metrics', opName: 'incrementTimeWasted' });
+  }
+
+  static async recordVisitedTab(tabId: number, url: string): Promise<void> {
+    if (typeof tabId !== 'number' || tabId < 0) return;
+    const sanitizedUrl = this.normalizeUrl(url);
+    if (!sanitizedUrl) return;
+
+    await this.withLock(async () => {
+      const data = await this.getStorageData();
+      const currentHistory: VisitedTabEntry[] = Array.isArray(data.recentTabs)
+        ? [...data.recentTabs]
+        : [];
+
+      const filteredHistory = currentHistory.filter(entry => entry.tabId !== tabId);
+      filteredHistory.push({
+        tabId,
+        url: sanitizedUrl,
+        lastActiveAt: Date.now()
+      });
+
+      const excess = filteredHistory.length - RECENT_TAB_LIMIT;
+      if (excess > 0) {
+        filteredHistory.splice(0, excess);
+      }
+
+      data.recentTabs = filteredHistory;
+      await browser.storage.local.set({ [STORAGE_KEY]: data });
+    }, { lock: 'metrics', opName: 'recordVisitedTab' });
+  }
+
+  static async getPreviousTab(currentTabId: number): Promise<VisitedTabEntry | null> {
+    const data = await this.getStorageData();
+    const history = Array.isArray(data.recentTabs) ? data.recentTabs : [];
+    if (history.length === 0) {
+      return null;
+    }
+
+    const index = history.findIndex(entry => entry.tabId === currentTabId);
+    if (index > 0) {
+      const previous = history[index - 1];
+      return { ...previous };
+    }
+
+    if (index === -1) {
+      const filtered = history.filter(entry => entry.tabId !== currentTabId);
+      if (filtered.length === 0) {
+        return null;
+      }
+      return { ...filtered[filtered.length - 1] };
+    }
+
+    return null;
   }
   
   static async completeLessonAndScheduleNext(): Promise<void> {
@@ -650,5 +699,13 @@ export class StorageUtils {
       // Return yesterday data or empty data if doesn't exist
       return data.yesterday || createEmptyDailyData(getYesterdayDateString());
     }
+  }
+
+  private static normalizeUrl(url: string): string | null {
+    if (typeof url !== 'string') return null;
+    const trimmed = url.trim();
+    if (!trimmed) return null;
+    if (trimmed.startsWith('chrome://') || trimmed.startsWith('about:')) return null;
+    return trimmed;
   }
 }

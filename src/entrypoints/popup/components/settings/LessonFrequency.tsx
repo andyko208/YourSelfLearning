@@ -6,9 +6,9 @@ interface LessonFrequencyProps {
 }
 
 const frequencyOptions = [
-  { label: 'Often (1-3)', value: 3 },
-  { label: 'Sometimes (4-6)', value: 6 },
-  { label: 'Barely (7-9)', value: 9 }
+  { label: 'Often', value: 3 },
+  { label: 'Sometimes', value: 6 },
+  { label: 'Barely', value: 9 }
 ];
 
 export const LessonFrequency: React.FC<LessonFrequencyProps> = ({ value, onChange }) => {
@@ -33,6 +33,7 @@ export const LessonFrequency: React.FC<LessonFrequencyProps> = ({ value, onChang
             key={option.value}
             onClick={() => onChange(option.value)}
             style={{
+              flex: 1,
               backgroundColor: isSelected ? 'white' : 'transparent',
               border: isSelected ? '2px solid black' : 'none',
               borderRadius: '12px',

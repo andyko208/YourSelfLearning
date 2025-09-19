@@ -1,8 +1,8 @@
 {
-  "name": "wxt-react-starter",
-  "description": "manifest.json description",
+  "name": "YourSelfLearning",
+  "description": "Replaces your screen for healthier content consumption for your brain.",
   "private": true,
-  "version": "0.0.0",
+  "version": "9.15.25",
   "type": "module",
   "scripts": {
     "dev": "wxt | grep -v warning",

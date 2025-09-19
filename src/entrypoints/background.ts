@@ -59,6 +59,14 @@ export default defineBackground(() => {
       hasActiveLesson: existingTab?.hasActiveLesson || false
     });
     
+    if (isActive && url) {
+      try {
+        await StorageUtils.recordVisitedTab(tabId, url);
+      } catch (error) {
+        console.error('Failed to record visited tab:', error);
+      }
+    }
+
     // Manage timer based on active tracked tabs
     await manageTimer();
     
@@ -290,6 +298,29 @@ export default defineBackground(() => {
         
         // Resume timer management
         await manageTimer();
+      }
+    }
+
+    if (message.type === 'NAVIGATE_TO_PREVIOUS_TAB' && sender.tab?.id) {
+      try {
+        const previous = await StorageUtils.getPreviousTab(sender.tab.id);
+        if (!previous || previous.tabId === sender.tab.id) {
+          return;
+        }
+
+        try {
+          const targetTab = await browser.tabs.get(previous.tabId);
+          if (typeof targetTab.windowId === 'number') {
+            await browser.windows.update(targetTab.windowId, { focused: true });
+          }
+          await browser.tabs.update(previous.tabId, { active: true });
+        } catch (error) {
+          if (previous.url) {
+            await browser.tabs.create({ url: previous.url });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to navigate to previous tab:', error);
       }
     }
   });
