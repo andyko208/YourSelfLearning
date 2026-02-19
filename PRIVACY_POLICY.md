@@ -1,17 +1,17 @@
-# Privacy Policy for XScroll Browser Extension
+# Privacy Policy for YourSelfLearning Browser Extension
 
 **Effective Date:** January 15, 2025  
 **Last Updated:** January 15, 2025
 
 ## Overview
 
-XScroll is a browser extension designed to transform social media scrolling into learning opportunities by presenting educational quiz lessons at configurable intervals. This Privacy Policy explains how we collect, use, and protect your information when you use our extension.
+YourSelfLearning is a browser extension designed to transform social media scrolling into learning opportunities by presenting educational quiz lessons at configurable intervals. This Privacy Policy explains how we collect, use, and protect your information when you use our extension.
 
 ## Information We Collect
 
 ### Data Collected and Stored Locally
 
-XScroll stores the following data **locally on your device only** using your browser's local storage:
+YourSelfLearning stores the following data **locally on your device only** using your browser's local storage:
 
 **Usage Metrics:**
 - Scroll count on tracked social media platforms
@@ -32,7 +32,7 @@ XScroll stores the following data **locally on your device only** using your bro
 
 ### Data We Do NOT Collect
 
-XScroll does **NOT** collect, transmit, or store:
+YourSelfLearning does **NOT** collect, transmit, or store:
 - Personal identifying information
 - Browsing history outside of scroll tracking on specified platforms
 - Content of websites you visit
@@ -44,7 +44,7 @@ XScroll does **NOT** collect, transmit, or store:
 
 ## How We Use Your Data
 
-All data collected by XScroll is used exclusively for:
+All data collected by YourSelfLearning is used exclusively for:
 
 1. **Functionality:** Tracking your scrolling behavior and time spent on enabled platforms
 2. **Educational Intervention:** Triggering lessons at appropriate intervals based on your activity
@@ -61,15 +61,15 @@ All data collected by XScroll is used exclusively for:
 
 ## Third-Party Services
 
-XScroll may access external educational resources through "Learn More" links that direct you to reputable educational websites. When you click these links:
-- You will be redirected to external websites not controlled by XScroll
+YourSelfLearning may access external educational resources through "Learn More" links that direct you to reputable educational websites. When you click these links:
+- You will be redirected to external websites not controlled by YourSelfLearning
 - Those websites have their own privacy policies
 - We do not track or monitor your activity on external websites
 - No data is shared with these external websites
 
 ## Permissions and Their Purpose
 
-XScroll requests the following browser permissions:
+YourSelfLearning requests the following browser permissions:
 
 - **Storage:** To save your settings, metrics, and preferences locally
 - **Active Tab:** To detect when you're on tracked social media platforms
@@ -86,7 +86,7 @@ These permissions are used solely for the core functionality described in this p
 
 ## Children's Privacy
 
-XScroll is not intended for children under 13 years of age. We do not knowingly collect personal information from children under 13. The educational content provided is designed for general audiences.
+YourSelfLearning is not intended for children under 13 years of age. We do not knowingly collect personal information from children under 13. The educational content provided is designed for general audiences.
 
 ## Data Retention
 
@@ -113,17 +113,17 @@ We may update this Privacy Policy to reflect changes in our practices or for leg
 
 ## Data Processing Legal Basis
 
-XScroll processes your data based on:
+YourSelfLearning processes your data based on:
 - **Legitimate Interest:** Providing educational intervention services
 - **Consent:** Your voluntary installation and use of the extension
 - **Contract Performance:** Delivering the core functionality you expect
 
 ## Contact Information
 
-For questions about this Privacy Policy or XScroll's privacy practices:
+For questions about this Privacy Policy or YourSelfLearning's privacy practices:
 
 **Developer:** ALAC Development Team  
-**Extension:** XScroll - Educational Intervention System  
+**Extension:** YourSelfLearning - Educational Intervention System  
 **Contact:** Through Chrome Web Store developer contact
 
 ## Compliance
@@ -136,7 +136,7 @@ This Privacy Policy complies with:
 
 ## Technical Implementation
 
-XScroll implements privacy by design:
+YourSelfLearning implements privacy by design:
 - **Minimal Data Collection:** Only necessary metrics for functionality
 - **Local Processing:** All data processing occurs on your device
 - **No Analytics:** No usage analytics or telemetry sent to developers
@@ -144,6 +144,6 @@ XScroll implements privacy by design:
 
 ---
 
-**By installing and using XScroll, you acknowledge that you have read and understood this Privacy Policy and agree to its terms.**
+**By installing and using YourSelfLearning, you acknowledge that you have read and understood this Privacy Policy and agree to its terms.**
 
-*This privacy policy reflects XScroll's commitment to user privacy and transparent data practices. All data remains under your control and on your device.*
+*This privacy policy reflects YourSelfLearning's commitment to user privacy and transparent data practices. All data remains under your control and on your device.*

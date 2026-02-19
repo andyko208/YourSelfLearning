@@ -1,8 +1,8 @@
-# XScroll - Phase 1: Scroll Detection & Time Tracking
+# YourSelfLearning - Phase 1: Scroll Detection & Time Tracking
 
 ## Overview
 
-XScroll is an educational intervention browser extension that transforms social media scrolling into learning opportunities. This Phase 1 implementation provides the core tracking functionality that monitors user behavior on social media platforms (TikTok, Instagram, YouTube Shorts) and tracks scrolling actions and time spent, organizing data into 8-hour intervals for daily analysis.
+YourSelfLearning is an educational intervention browser extension that transforms social media scrolling into learning opportunities. This Phase 1 implementation provides the core tracking functionality that monitors user behavior on social media platforms (TikTok, Instagram, YouTube Shorts) and tracks scrolling actions and time spent, organizing data into 8-hour intervals for daily analysis.
 
 ## Phase 1 Implementation Summary
 
@@ -76,7 +76,7 @@ The extension stores data in browser local storage with the following structure:
 ```
 ---
 
-# XScroll Browser Extension - Phase 2: Lesson Content Overlay System
+# YourSelfLearning Browser Extension - Phase 2: Lesson Content Overlay System
 
 ## Overview
 
@@ -237,11 +237,11 @@ Phase 2.1 focused on reducing codebase complexity and removing redundant compone
 
 ---
 
-# XScroll - Phase 3: Main UI Development
+# YourSelfLearning - Phase 3: Main UI Development
 
 ## Overview
 
-Phase 3 implements the primary user interface for the XScroll browser extension, providing users with a visual dashboard that displays their scrolling metrics, time wasted, and lessons completed. The interface features a minimalist black-and-white design with three metric slots styled like casino slot machines, a brain battery indicator showing remaining cognitive capacity, a reset timer countdown, and navigation to placeholder pages.
+Phase 3 implements the primary user interface for the YourSelfLearning browser extension, providing users with a visual dashboard that displays their scrolling metrics, time wasted, and lessons completed. The interface features a minimalist black-and-white design with three metric slots styled like casino slot machines, a brain battery indicator showing remaining cognitive capacity, a reset timer countdown, and navigation to placeholder pages.
 
 ## Phase 3 Implementation Summary
 
@@ -347,7 +347,7 @@ The brain battery implements a gamified cognitive capacity system:
 
 ---
 
-# XScroll - Phase 4: Date Selection & Historical Metrics Display
+# YourSelfLearning - Phase 4: Date Selection & Historical Metrics Display
 
 ## Overview
 
@@ -420,7 +420,7 @@ src/
 
 ---
 
-# XScroll - Phase 5: Settings Page Implementation
+# YourSelfLearning - Phase 5: Settings Page Implementation
 
 ## Overview
 
@@ -522,7 +522,7 @@ src/
 
 ---
 
-# XScroll - Phase 5.1: Architecture Improvements & UI Polish
+# YourSelfLearning - Phase 5.1: Architecture Improvements & UI Polish
 
 ## Overview
 
@@ -605,7 +605,7 @@ Phase 5.1 introduces significant architecture improvements and UI polish to the 
 - Lesson overlay system with 3-state progression
 - Multi-tab independent lesson management
 
-# XScroll - Phase 6: Library Page - Customizable Lesson Content System
+# YourSelfLearning - Phase 6: Library Page - Customizable Lesson Content System
 
 ## Overview
 Phase 6 implements the Library page with a two-tier selection system: themes (single-select) and topics (multi-select). Selections persist and update lesson content in real time across tabs, aligning UI patterns with Settings for a consistent experience.
@@ -677,7 +677,7 @@ public/
     └── why-hate.tsv
 ```
 
-# XScroll - Phase 6.1: Dynamic Lessons, Local‑Midnight Rollover, and UX Polish
+# YourSelfLearning - Phase 6.1: Dynamic Lessons, Local‑Midnight Rollover, and UX Polish
 
 ## Overview
 Phase 6.1 replaces hardcoded lesson mappings with dynamic discovery, fixes daily rollover to use local midnight, tightens selection storage and migrations, and polishes the Library and Settings UX (smooth topic scrolling and select‑all toggles). Brain Battery UI/behavior is clarified: show 1% when 0 < x < 1, and trigger the brain‑fried overlay only at true 0%.
@@ -793,7 +793,7 @@ public/
 - Vite's duplicate `browser` import warning appears during build; it is non‑blocking.
 - TSVs must follow the 5‑column format; malformed rows are skipped with error handling in parser.
 
-# XScroll - Phase 6.2: Quick Click Bonus Notification System Enhancement
+# YourSelfLearning - Phase 6.2: Quick Click Bonus Notification System Enhancement
 
 ## Overview
 Phase 6.2 fixes critical bugs in the bonus notification system and implements a psychological "valuable opportunity" system where quick-click bonuses appear at random intervals instead of every lesson. This enhancement includes comprehensive debugging tools and improved UX positioning to prevent interface interference.

@@ -11,6 +11,14 @@ export interface DailyData {
   date: string;
 }
 
+export interface TodoItem {
+  id: string;
+  title: string;
+  completed: boolean;
+  createdAt: number;
+  completedAt?: number;
+}
+
 export interface StorageData {
   today: DailyData;
   yesterday: DailyData;
@@ -31,6 +39,8 @@ export interface StorageData {
     nextBonusAt: number;
   };
   recentTabs: VisitedTabEntry[];
+  todos: TodoItem[];
+  userId?: string; // For backend synchronization
 }
 
 export type TimePeriod = 'morning' | 'afternoon' | 'night';

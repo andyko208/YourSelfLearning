@@ -1,4 +1,4 @@
-import type { StorageData, DailyData, StorageLock, VisitedTabEntry } from '../../utils/storage';
+import type { StorageData, DailyData, StorageLock, VisitedTabEntry, TodoItem } from '../../utils/storage';
 import { 
   getCurrentTimePeriod, 
   getTodayDateString, 
@@ -203,6 +203,11 @@ export class StorageUtils {
         (data as any).recentTabs = [];
         await browser.storage.local.set({ [STORAGE_KEY]: data });
       }
+
+      if (!Array.isArray((data as any).todos)) {
+        (data as any).todos = [];
+        await browser.storage.local.set({ [STORAGE_KEY]: data });
+      }
       
       return data;
     } catch (error) {
@@ -249,7 +254,8 @@ export class StorageUtils {
         lessonsCompleted: 0,
         nextBonusAt: this.getRandomBonusInterval() // Random interval between 2-5 lessons
       },
-      recentTabs: []
+      recentTabs: [],
+      todos: []
     };
   }
   
@@ -268,9 +274,10 @@ export class StorageUtils {
       brainBattery: 100, // Reset brain battery to 100% daily
       bonusTracker: {
         lessonsCompleted: 0,
-        nextBonusAt: this.getRandomBonusInterval() // Reset bonus tracking daily
+      nextBonusAt: this.getRandomBonusInterval() // Reset bonus tracking daily
       },
-      recentTabs: data.recentTabs ?? []
+      recentTabs: data.recentTabs ?? [],
+      todos: []
     };
     
     await browser.storage.local.set({ [STORAGE_KEY]: newData });
@@ -699,6 +706,97 @@ export class StorageUtils {
       // Return yesterday data or empty data if doesn't exist
       return data.yesterday || createEmptyDailyData(getYesterdayDateString());
     }
+  }
+
+  static async getTodos(): Promise<TodoItem[]> {
+    const data = await this.getStorageData();
+    return Array.isArray(data.todos) ? data.todos : [];
+  }
+
+  static async addTodo(title: string): Promise<TodoItem[]> {
+    const trimmed = title.trim();
+    if (!trimmed) {
+      return this.getTodos();
+    }
+
+    const timestamp = Date.now();
+    return this.updateTodos((todos) => ([
+      {
+        id: `${timestamp}-${Math.random().toString(36).slice(2, 10)}`,
+        title: trimmed,
+        completed: false,
+        createdAt: timestamp
+      },
+      ...todos
+    ]));
+  }
+
+  static async toggleTodo(id: string): Promise<TodoItem[]> {
+    return this.updateTodos((todos) => (todos.map((todo) => (
+      todo.id === id
+        ? {
+            ...todo,
+            completed: !todo.completed,
+            completedAt: todo.completed ? undefined : Date.now()
+          }
+        : todo
+    ))));
+  }
+
+  static async removeTodo(id: string): Promise<TodoItem[]> {
+    return this.updateTodos((todos) => todos.filter((todo) => todo.id !== id));
+  }
+
+  static async clearTodos(): Promise<void> {
+    await this.updateTodos(() => []);
+  }
+
+  /**
+   * Get or generate a user ID for backend operations
+   */
+  static async getUserId(): Promise<string> {
+    const result = await this.withLock(async () => {
+      const data = await this.getStorageData();
+
+      if (data.userId) {
+        return data.userId;
+      }
+
+      // Generate a new user ID
+      const userId = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      data.userId = userId;
+
+      await browser.storage.local.set({ [STORAGE_KEY]: data });
+      return userId;
+    }, { lock: 'settings' });
+
+    return result as string || '';
+  }
+
+  /**
+   * Set the user ID (for authenticated users)
+   */
+  static async setUserId(userId: string): Promise<void> {
+    await this.withLock(async () => {
+      const data = await this.getStorageData();
+      data.userId = userId;
+      await browser.storage.local.set({ [STORAGE_KEY]: data });
+    }, { lock: 'settings' });
+  }
+
+  private static async updateTodos(
+    updater: (todos: TodoItem[]) => TodoItem[]
+  ): Promise<TodoItem[]> {
+    const result = await this.withLock<TodoItem[]>(async () => {
+      const data = await this.getStorageData();
+      const current = Array.isArray(data.todos) ? data.todos : [];
+      const next = updater([...current]);
+      data.todos = next;
+      await browser.storage.local.set({ [STORAGE_KEY]: data });
+      return next;
+    }, { lock: 'settings', opName: 'updateTodos' });
+
+    return result ?? [];
   }
 
   private static normalizeUrl(url: string): string | null {

@@ -80,15 +80,6 @@ export const HomePage: React.FC = () => {
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         justifyContent: 'flex-start', width: '100%', minHeight: '100%', gap: '12px'
       }}>
-        <h2 style={{
-          fontSize: '16px',
-          fontWeight: '600',
-          color: '#666',
-          margin: '0 0 12px 0',
-          letterSpacing: '0.5px'
-        }}>
-           YourSelfLearning
-        </h2>
         {/* Date Selector */}
         <div style={{ width: '100%', maxWidth: '440px', display: 'flex', flexDirection: 'column', alignItems: 'center', boxSizing: 'border-box' }}>
           <DateSelector 
@@ -101,6 +92,7 @@ export const HomePage: React.FC = () => {
         <div style={{
           width: '100%',
           maxWidth: '440px',
+          height: '242',
           backgroundColor: '#f5f5f5',
           border: '2px solid black',
           borderRadius: '16px',

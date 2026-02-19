@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { Layout } from './components/Layout';
 import { HomePage } from './pages/HomePage';
 import { SettingsPage } from './pages/SettingsPage';
-import { LibraryPage } from './pages/LibraryPage';
+import { TodoPage } from './pages/TodoPage';
 
 export default function App() {
-  const [currentPage, setCurrentPage] = useState<'home' | 'settings' | 'library'>('home');
+  const [currentPage, setCurrentPage] = useState<'home' | 'settings' | 'library' | 'friends'>('home');
 
   // Handle navigation
-  const handleNavigation = (page: 'home' | 'settings' | 'library') => {
+  const handleNavigation = (page: 'home' | 'settings' | 'library' | 'friends') => {
     setCurrentPage(page);
   };
 
@@ -17,7 +17,7 @@ export default function App() {
       {/* Conditionally render pages */}
       {currentPage === 'home' && <HomePage />}
       {currentPage === 'settings' && <SettingsPage />}
-      {currentPage === 'library' && <LibraryPage />}
+      {currentPage === 'friends' && <TodoPage />}
     </Layout>
   );
 }

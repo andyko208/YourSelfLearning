@@ -1,10 +1,11 @@
-import { LessonOverlay, type LessonOverlayCallbacks } from './lesson-overlay';
-import { lessonParser } from '../../utils/lesson-parser';
+import { TodoOverlay, type TodoOverlayCallbacks } from './todo-overlay';
 import { StorageUtils } from './storage-utils';
 import { browser } from '../../utils/browser-api';
+import { todoService } from '../popup/services/todo-service';
+import type { TodoItem } from '../../utils/storage';
 
 export class LessonManager {
-  private currentOverlay: LessonOverlay | null = null;
+  private currentOverlay: TodoOverlay | null = null;
   private isLessonActive = false;
   private pendingLessonCompletion = false;
   private mediaObserver: MutationObserver | null = null;
@@ -18,41 +19,15 @@ export class LessonManager {
   };
 
   constructor() {
-    this.initializeLessonParser();
     this.setupStorageListener();
   }
 
   /**
-   * Initialize lesson parser by loading lesson data
-   */
-  private async initializeLessonParser(): Promise<void> {
-    try {
-      const sel = await StorageUtils.getSelectedLessons();
-      await lessonParser.loadLessons(sel);
-    } catch (error) {
-      console.error('Failed to initialize lesson parser:', error);
-    }
-  }
-
-  /**
-   * Set up initial lesson check (removed storage listener to prevent race conditions)
+   * Set up initial lesson check
    */
   private setupStorageListener(): void {
     // Initial check
     this.checkShouldTriggerLesson();
-
-    // Reload lessons when theme/topics change
-    try {
-      browser.storage.onChanged.addListener(async (changes: Record<string, any>, area: string) => {
-        if (area !== 'local') return;
-        const dataChange = (changes as any)['xscroll-data'];
-        if (dataChange?.newValue?.settings) {
-          const s = dataChange.newValue.settings;
-          const topics = s.selectedTopicsByTheme?.[s.selectedTheme] ?? s.selectedTopics ?? [];
-          await lessonParser.loadLessons({ theme: s.selectedTheme, topics });
-        }
-      });
-    } catch {}
   }
 
   /**
@@ -83,18 +58,18 @@ export class LessonManager {
   }
 
   /**
-   * Trigger a lesson display
+   * Trigger todo overlay display
    */
   private async triggerLesson(): Promise<void> {
-    // Triple-check state to prevent multiple lessons
-    if (this.isLessonActive || this.currentOverlay || !lessonParser.isLoaded()) {
+    // Triple-check state to prevent multiple overlays
+    if (this.isLessonActive || this.currentOverlay) {
       return;
     }
 
     try {
       // Immediately set local state to prevent race conditions
       this.isLessonActive = true;
-      
+
       // Set lesson as active in storage
       await StorageUtils.setLessonActive(true);
 
@@ -110,18 +85,45 @@ export class LessonManager {
       // Freeze page interactions
       this.freezePage();
 
-      // Get random lesson and create overlay
-      const lesson = lessonParser.getRandomLessonForDisplay();
-      const callbacks: LessonOverlayCallbacks = {
-        onLessonComplete: this.handleLessonComplete.bind(this),
+      // Initialize todo service with user ID
+      const userId = await StorageUtils.getUserId();
+      todoService.setUserId(userId);
+
+      // Load todos from backend first, then fallback to local storage
+      let todos: TodoItem[] = [];
+
+      try {
+        // Try to get uncompleted todos from backend
+        todos = await todoService.getUncompletedTodos();
+        console.log(`Loaded ${todos.length} uncompleted todos from backend for user ${userId}`);
+      } catch (error) {
+        console.warn('Failed to load todos from backend, falling back to local storage:', error);
+      }
+
+      // If no todos from backend, try local storage
+      if (todos.length === 0) {
+        try {
+          const localTodos = await StorageUtils.getTodos();
+          todos = localTodos.filter(todo => !todo.completed); // Only show uncompleted local todos
+          console.log(`Loaded ${todos.length} uncompleted todos from local storage`);
+        } catch (error) {
+          console.warn('Failed to load todos from local storage:', error);
+        }
+      }
+
+      // If still no todos, show general todos
+      const useGeneralTodos = todos.length === 0;
+
+      const todoCallbacks: TodoOverlayCallbacks = {
+        onTodoComplete: this.handleLessonComplete.bind(this),
         onClose: this.handleLessonClose.bind(this)
       };
 
-      this.currentOverlay = new LessonOverlay(lesson, callbacks);
+      this.currentOverlay = new TodoOverlay(todos, todoCallbacks, useGeneralTodos);
       this.currentOverlay.show();
 
     } catch (error) {
-      console.error('Error triggering lesson:', error);
+      console.error('Error triggering todo overlay:', error);
       await this.handleLessonError();
     }
   }

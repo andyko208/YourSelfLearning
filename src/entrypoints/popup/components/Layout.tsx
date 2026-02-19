@@ -7,8 +7,8 @@ import { browser } from '../../../utils/browser-api';
 
 interface LayoutProps {
   children: React.ReactNode;
-  currentPage: 'home' | 'settings' | 'library';
-  onNavigate: (page: 'home' | 'settings' | 'library') => void;
+  currentPage: 'home' | 'settings' | 'library' | 'friends';
+  onNavigate: (page: 'home' | 'settings' | 'library' | 'friends') => void;
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onNavigate }) => {
